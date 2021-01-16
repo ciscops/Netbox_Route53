@@ -1,3 +1,0 @@
-import pynetbox 
-
-nb = pynetbox.api(url=URL, token=TOKEN)
