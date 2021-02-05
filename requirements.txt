@@ -1,2 +1,2 @@
-Route53==
-pynetbox==
+Route53==1.0.1
+Pynetbox==5.3.1

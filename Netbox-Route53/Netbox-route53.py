@@ -28,7 +28,8 @@ class NetboxRoute53:
 
     self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
 
-    # Not sure if I need these yet
+    # Not sure if I need these yet:
+
     # self.nb_prefixes = self.nb.ipam.prefixes.all()
     # self.nb_ip_addresses = self.nb.ipam.ip_addresses.all()
 
@@ -77,32 +78,54 @@ class NetboxRoute53:
             return True
     return False
 
-  # Netbox stuff for getting prefixes
-pfx_search = nb.ipam.prefixes.all()
 
-for pfx in pfx_search:
-      #pfx.prefix, pfx.status, pfx.ip,
-
-
-
-
+#info to pass in
+#all_prefixes = nb.ipam.prefixes.all()
+#my_pfx = all_prefixes
+#pfx = my_pfx.prefix
+#pfx.hostmask
+#pfx.ip + number
 
 
+# Main updater - I think I'll be referencing this via lambda and passing in a group of ips to iterate through. This might change what needs to be passed in
+
+   def check_record_exists(ip, sitename):
+        R53_records = conn.get_zone(dns)
+        for recordset in recordSets.get_records();
+            if recordset.name == dns_record+"." & recordset.ip == dns_record:
+                return True
+   #add something here to update either one if one is true and the other isnt
+   #I cant make much progress here without working with route53 records. The syntax and commands are
+   #wrong but the idea is there
+
+   def R53_create_record(ip, sitename):
+        new_record, change_info = zone.create_a_record(name=sitename,values=ip)
+        #Cant make much progress without testing this
+
+   def integrate_records():
+   #determine proper parameters to pass in for integrate_records. Is it "self"???
+        all_prefixes = nb.ipam.prefixes.all()
+        for record in all_prefixes:
+            if check_record_exists(record.ip, record.site.name) == True:
+                break
+            else:
+                R53_create_record(record.ip, record.site.name):
 
 
-
-
-#add error catches for the below functions
-#route53.exceptions.Route53Error
+    #add error catches for the below functions
+    #route53.exceptions.Route53Error
     #R53 function to update a records by passing in the prefix and ip (check both and update respectively)
-  def record_update(ip, prefix)
+
+
+
+
 
     #R53 function to create a record by passing in the prefix and ip
-  def record_create(ip, prefix):
-    record_set.create_a_record(name, values, ttl=60, weight=None, region=None, set_identifier=None, alias_hosted_zone_id=None, alias_dns_name=None)
-        #what record am I creating here? a/aaaa/cname/mx/ns/ptr/spf/srv/TXT/
-        #Using a function for code simplicity to easily pass in netbox ip and prefix in the for loop later on
-        #new_record, change_info = zone.create_a_record(name= prefix,values=ip,)
+    #def record_create(ip, prefix):
+    #record_set.create_a_record(name, values, ttl=60, weight=None, region=None, set_identifier=None, alias_hosted_zone_id=None, alias_dns_name=None)
+    #what record am I creating here? a/aaaa/cname/mx/ns/ptr/spf/srv/TXT/
+    #Using a function for code simplicity to easily pass in netbox ip and prefix in the for loop later on
+    #new_record, change_info = zone.create_a_record(name= prefix,values=ip,)
 
 
   # Code for R53 add / update records based on NB
@@ -114,6 +137,13 @@ for pfx in pfx_search:
   #probably will use nb_ip_address (possibly could call the function and pass it in at the same time)
   #check if record_set . name is appropiate or if it should be record_set . ip (also find a way to print both r53 and nb ips and compare them manually first before automating)
   #find out what this code block below prints
+
+  # Netbox stuff for getting prefixes
+  pfx_search = nb.ipam.prefixes.all()
+
+  for pfx in pfx_search:
+  #pfx.prefix, pfx.status, pfx.ip,
+
 
 netbox_ip = '(insert netbox ip here)'
 for record_set in zone.record_sets:
@@ -141,3 +171,21 @@ record_set.save()
 new_record, change_info = zone.create_a_record(
 name='test.some-domain.com.',
 values=['8.8.8.8'],)
+
+def R53_record_update(#all needed values to pass in):
+    #(easier to just overwrite everything if the records dont match)
+    record_set.values = ['insert record to be changed here']
+    record_set.save()
+    #Pass in record set (DONT FORGET)
+
+ #for address in self.nb_ip_addresses:
+     #iterate through all ip addresses. I believe you can pass in all ip's by this method and it works
+     #check all of route53 records with each Ip iterated through (use in command)
+      # if address in route53 records:
+         #verify the rest of the values match
+        #   if (needed values For netxbox record) == (needed values For route53):
+        #       break
+         #  else:
+        # R53_record_update(pass In values From parameters):
+       #else:
+         #record_set.create_a_record(Needed values, See route53 python documentation):
