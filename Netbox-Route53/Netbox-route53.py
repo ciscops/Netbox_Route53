@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys
 import logging
@@ -103,13 +104,38 @@ class NetboxRoute53:
         #Cant make much progress without testing this
 
    def integrate_records():
-   #determine proper parameters to pass in for integrate_records. Is it "self"???
+   #determine proper parameters to pass in for integrate_records. Is it "self"????
         all_prefixes = nb.ipam.prefixes.all()
         for record in all_prefixes:
             if check_record_exists(record.ip, record.site.name) == True:
                 break
             else:
                 R53_create_record(record.ip, record.site.name):
+
+
+
+    if "NetBox_timeperiod" in os.environ:
+            self.timespan = os.getenv("NetBox_timeperiod")
+        else:
+            self.timespan = 60 * 60 * 1
+
+        self.netbox_time_format = '%Y-%m-%dT%XZ'
+
+
+    def get_netbox_records(status, self)
+        try:
+            # Get list of records on network, filtering on self.timespan of last 14 days
+            records = nb.ipam.ip_addresses.filter(status = active,
+                                                  NetBox_timeperiod = self.timespan)
+
+
+
+
+
+
+
+
+
 
 
     #add error catches for the below functions
