@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 import logging
@@ -8,87 +8,73 @@ import route53
 
 
 class NetboxRoute53:
-  def __init_(self):
+    def __init_(self):
 
-    # Initialize logging
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-    self.logging = logging.getLogger()
+        # Initialize logging
+        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+        self.logging = logging.getLogger()
 
-    # Initialize Netbox
-    if "NETBOX_URL" in os.environ:
-        self.nb_url = os.getenv("NETBOX_URL")
+        # Initialize Netbox
+        if "NETBOX_URL" in os.environ:
+            self.nb_url = os.getenv("NETBOX_URL")
+        else:
+            logging.error("Environmnet variable NETBOX_URL must be set")
+            sys.exit(1)
+
+        if "NETBOX_TOKEN" in os.environ:
+            self.nb_token = os.getenv("NETBOX_TOKEN")
+        else:
+            logging.error("Environmnet variable NETBOX_TOKEN must be set")
+            sys.exit(1)
+
+        self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
+        self.nb_ip_addresses = self.nb.ipam.ip_addresses.all()
+
+        # Initialize Route53
+        if "ROUTE53_ID" in os.environ:
+            self.r53_id = os.getenv("ROUTE53_ID")
+        else:
+            logging.error("Environment variable ROUTE53_ID must be set")
+            sys.exit(1)
+
+        if "ROUTE53_KEY" in os.environ:
+            self.r53_key = os.getenv("ROUTE53_KEY")
+        else:
+            logging.error("Environment variable ROUTE53_KEY must be set")
+            sys.exit(1)
+
+        conn = route53.connect(
+            aws_access_key_id=self.r53_id,
+            aws_secret_access_key=self.r53_key,
+        )
+
+    if "NetBox_timeperiod" in os.environ:
+        self.timespan = os.getenv("NetBox_timeperiod")
     else:
-        logging.error("Environmnet variable NETBOX_URL must be set")
-        sys.exit(1)
+        self.timespan = 60 * 60 * 1
 
-    if "NETBOX_TOKEN" in os.environ:
-        self.nb_token = os.getenv("NETBOX_TOKEN")
-    else:
-        logging.error("Environmnet variable NETBOX_TOKEN must be set")
-        sys.exit(1)
-
-    self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
-
-    # Not sure if I need these yet:
-
-    # self.nb_prefixes = self.nb.ipam.prefixes.all()
-    # self.nb_ip_addresses = self.nb.ipam.ip_addresses.all()
-
-
-    # Initialize Route53
-    if "ROUTE53_ID" in os.environ:
-        self.r53_id = os.getenv("ROUTE53_ID")
-    else:
-        logging.error("Environment variable ROUTE53_ID must be set")
-        sys.exit(1)
-
-    if "ROUTE53_KEY" in os.environ:
-        self.r53_key = os.getenv("ROUTE53_KEY")
-    else:
-        logging.error("Environment variable ROUTE53_KEY must be set")
-        sys.exit(1)
-
-    # I dont know if this works
-    conn = route53.connect(
-        aws_access_key_id=self.r53_id,
-        aws_secret_access_key=self.r53_key,
-    )
-
-  # Not sure I need these functions
-  # Might only need check_ip_addresses & maybe is_discovered
-
-  # Prefix
-  def check_prefixes(self, ip_address):
-    for prefix in self.nb_prefixes:
-        if prefix.status.value == 'active' and (ipaddress.ip_address(ip_address) in ipaddress.ip_network(
-                prefix.prefix)):
-            return prefix.prefix.split('/')[1]
-    return None
 
   # Ip - address
-  def check_ip_addresses(self, ip_address):
-    for nb_ip_address in self.nb_ip_addresses:
-        if ip_address in nb_ip_address.address:
-            return nb_ip_address
-    return None
+    def check_ip_addresses(self, ip_address):
+        for nb_ip_address in self.nb_ip_addresses:
+            if ip_address in nb_ip_address.address:
+                return nb_ip_address
+        return None
 
   # discovered tag
-  def is_discovered(self, nb_ip_address):
-    for tag in nb_ip_address.tags:
-        if tag.name == self.discovered_tag:
-            return True
-    return False
+    def is_discovered(self, nb_ip_address):
+        for tag in nb_ip_address.tags:
+            if tag.name == self.discovered_tag:
+                return True
+        return False
 
+    def get_nb_records(self):
+    update_time = datetime.today() - timedelta(hours=24, minutes=0)
+    update_time.strftime('%Y-%m-%dT%XZ')
+    ip_search = nb.ipam.ip_addresses.filter(within = self.nb_ip_addresses, last_updated__gte = update_time)
+        for ip in ip_search:
+            return ip, ip.dns_name, ip.last_updated
 
-#info to pass in
-#all_prefixes = nb.ipam.prefixes.all()
-#my_pfx = all_prefixes
-#pfx = my_pfx.prefix
-#pfx.hostmask
-#pfx.ip + number
-
-
-# Main updater - I think I'll be referencing this via lambda and passing in a group of ips to iterate through. This might change what needs to be passed in
 
    def check_record_exists(ip, sitename):
         R53_records = conn.get_zone(dns)
@@ -114,42 +100,6 @@ class NetboxRoute53:
 
 
 
-    if "NetBox_timeperiod" in os.environ:
-            self.timespan = os.getenv("NetBox_timeperiod")
-        else:
-            self.timespan = 60 * 60 * 1
-
-        self.netbox_time_format = '%Y-%m-%dT%XZ'
-
-
-    def get_netbox_records(status, self)
-        try:
-            # Get list of records on network, filtering on self.timespan of last 14 days
-            records = nb.ipam.ip_addresses.filter(status = active,
-                                                  NetBox_timeperiod = self.timespan)
-
-
-
-
-
-
-
-
-
-
-
-    #add error catches for the below functions
-    #route53.exceptions.Route53Error
-    #R53 function to update a records by passing in the prefix and ip (check both and update respectively)
-
-
-
-
-
-    #R53 function to create a record by passing in the prefix and ip
-    #def record_create(ip, prefix):
-    #record_set.create_a_record(name, values, ttl=60, weight=None, region=None, set_identifier=None, alias_hosted_zone_id=None, alias_dns_name=None)
-    #what record am I creating here? a/aaaa/cname/mx/ns/ptr/spf/srv/TXT/
     #Using a function for code simplicity to easily pass in netbox ip and prefix in the for loop later on
     #new_record, change_info = zone.create_a_record(name= prefix,values=ip,)
 
