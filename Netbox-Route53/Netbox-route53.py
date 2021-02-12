@@ -87,7 +87,7 @@ class NetboxRoute53:
        for record in r53 records: #fill this comand out
            if record.ip = nb_ip: #fill this command out
                if record.dns = nb_dns: #fill this command out
-                   return True #this is intentional, return the entire singular record
+                   return True 
                else:
                    update_r53_record(nb_dns)
            elif record.dns = nb_dns: #fill out this command

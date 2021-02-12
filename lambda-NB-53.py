@@ -1,6 +1,5 @@
 import logging
 import datetime
-from meraki_netbox.meraki_netbox import MerakiNetbox
 from Netbox_Route53_Integration.Netbox_Route53 import Netbox_route53
 
 logger = logging.getLogger()
