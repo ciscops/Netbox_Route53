@@ -4,7 +4,7 @@ import sys
 import logging
 import pynetbox
 import route53
-
+import boto3
 
 
 class NetboxRoute53:
@@ -43,16 +43,18 @@ class NetboxRoute53:
             logging.error("Environment variable ROUTE53_KEY must be set")
             sys.exit(1)
 
-        conn = route53.connect(
-            aws_access_key_id=self.r53_id,
+        if "ROUTE53_TOKEN" in os.environ:
+            self.r53_token = os.getenv("ROUTE53_TOKEN")
+        else:
+            logging.error("Environment variable ROUTE53_TOKEN must be set")
+            sys.exit(1)
+
+        client = boto3.client(
+            's3',
+            aws_access_key_id=self.r53_id,,
             aws_secret_access_key=self.r53_key,
+            aws_session_token=self.r53_token
         )
-
-    if "NetBox_timeperiod" in os.environ:
-        self.timespan = os.getenv("NetBox_timeperiod")
-    else:
-        self.timespan = 60 * 60 * 1
-
 
   # Ip - address
     def check_ip_addresses(self, ip_address):
@@ -69,34 +71,63 @@ class NetboxRoute53:
         return False
 
     def get_nb_records(self):
-    update_time = datetime.today() - timedelta(hours=24, minutes=0)
-    update_time.strftime('%Y-%m-%dT%XZ')
-    ip_search = nb.ipam.ip_addresses.filter(within = self.nb_ip_addresses, last_updated__gte = update_time)
+    timespan = datetime.today() - timedelta(hours=24, minutes=0)
+    timespan.strftime('%Y-%m-%dT%XZ')
+    ip_search = nb.ipam.ip_addresses.filter(within = self.nb_ip_addresses, last_updated__gte = timespan)
         for ip in ip_search:
-            return ip, ip.dns_name, ip.last_updated
+            return ip, ip.dns_name
 
 
-   def check_record_exists(ip, sitename):
-        R53_records = conn.get_zone(dns)
-        for recordset in recordSets.get_records();
-            if recordset.name == dns_record+"." & recordset.ip == dns_record:
-                return True
+
+#side note, when eventually using this function, tie a variable to get_nb_records and pass it in as the parameter
+   def check_and_update_r53_record(nb_ip, nb_dns):
+       #IMPORTANT: Only update records you added. Make this the first thing you check before searching for route53 records
+       #Use a tag like "is discovered" or "nbr53 marked"
+
+       for record in r53 records: #fill this comand out
+           if record.ip = nb_ip: #fill this command out
+               if record.dns = nb_dns: #fill this command out
+                   return True #this is intentional, return the entire singular record
+               else:
+                   update_r53_record(nb_dns)
+           elif record.dns = nb_dns: #fill out this command
+               update_r53_record(nb_ip)
+           else:
+           return False
+
+
+    def update_r53_record(ip, dns, *args, **kwargs):
+        #for this command, experiment with it. I dont know the exact update commands and as long as I cant test it theres not much I can do
+        #also test that it knows what is being passed in, if its either ip or dns and update accordingly. I don't want to make 2 functions
+        #add a second check for a tag like "nbr53" to ensure this is the right one to edit. (This could be redundant and not needed however)
+
+    def R53_create_record(ip, dns):
+       new_record, change_info = zone.create_a_record(name=sitename,values=ip)
+       #for this command, experiment with it. I dont know the exact update commands and as long as I cant test it theres not much I can do
+       #Remember to add a tag when creating records that indicates this script created them
+
+    def integrate_records(self):
+        #iterate on nb ip addresses with get_nb_records (This will be tricky)
+            #use check_and_update_r53_record with an if statement (Remember that the result from get_nb_records can be assigned to a
+            #variable and passed into this function. Consider simplifying dns and ip to one single variable if you can figure out how
+            #to seperate the two values)
+                #use R53_create_record with the return value of get_nb_records. In this case its a complete true or false so just pass
+                #in what gets returned
+
+    #note, there will be alot of parameter passing. When this function progresses, find a way to keep it simple (ie: master variable)
+
+
+
+
+    #    R53_records = conn.get_zone(dns)
+    #    for recordset in recordSets.get_records();
+    #        if recordset.name == dns_record+"." & recordset.ip == dns_record:
+    #            return True
    #add something here to update either one if one is true and the other isnt
    #I cant make much progress here without working with route53 records. The syntax and commands are
    #wrong but the idea is there
 
-   def R53_create_record(ip, sitename):
-        new_record, change_info = zone.create_a_record(name=sitename,values=ip)
-        #Cant make much progress without testing this
 
-   def integrate_records():
-   #determine proper parameters to pass in for integrate_records. Is it "self"????
-        all_prefixes = nb.ipam.prefixes.all()
-        for record in all_prefixes:
-            if check_record_exists(record.ip, record.site.name) == True:
-                break
-            else:
-                R53_create_record(record.ip, record.site.name):
 
 
 
