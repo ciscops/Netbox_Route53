@@ -77,6 +77,10 @@ class NetboxRoute53:
         for ip in ip_search:
             return ip, ip.dns_name #might need to make this into a single variable. Keep it as is for now
 
+    #Todo:
+    #Test how this function works with the others, including passing in the variables properly
+    #Make sure the formats for the ip and dns are correct between netbox and Route53
+    #Figure out the variable returning
 
 #side note, when eventually using this function, tie a variable to get_nb_records and pass it in as the parameter
    def check_and_update_r53_record(nb_ip, nb_dns):
@@ -101,17 +105,27 @@ class NetboxRoute53:
                if record.dns = nb_dns: #fill this command out
                    return True
                else:
-                   update_r53_record(nb_dns)
+                   update_r53_record(ip = nb_ip, dns = nb_dns, update = "dns")
            elif record.dns = nb_dns: #fill out this command
-               update_r53_record(nb_ip)
+               update_r53_record(ip = nb_ip, dns = nb_dns, update = "ip")
            else:
            return False
            #Play around with the update command. Hard to predict what it will do
            #and how to find and properly update a record. You probably need to specify
            #one or the other so chances are there may be more to fix with update_r53_record
 
+         #Todo:
+         #Fill out commands where needed.
+         #Figure out how to pull ip and dns for a single record set
+         #Test This ^
+         #Test the logic for this command
+         #Make sure variables are passed in properly for #update_r53_record
+         #Test this ^
+         #Make sure the update variable is passed in properly
+         #Test this with #integrate_records
 
-    def update_r53_record(ip, dns):
+
+    def update_r53_record(ip, dns, update):
         #So for the sake of simplicty, just overwrite the existing ip or dns name, Since one will be correct and the other wrong,
         #It saves the hassle of having to figure out which one needs updating. A little tricky logically but it should work
 
@@ -125,20 +139,44 @@ class NetboxRoute53:
 
         # IMPORTANT
 
-        response = client.change_resource_record_sets(
-        HostedZoneId='string', #pass this in manually
-        ChangeBatch={
-            'Changes': [
-                {
-                    'Action': 'UPSERT',
-                    'ResourceRecordSet': {
-                        'Name': dns,
-                        'Type': 'A',
-                        'ResourceRecords': [
-                            {
-                            'Value': ip,
-                            },
-                        ],},},],},)
+        #Todo:
+        #Figure out the nbr53 tag part
+        #Figure out how to update one or the other. You can't just update a record without specifying which record it is
+        #you are updating
+        #Test
+
+        order = update
+        if order = "ip":
+            response = client.change_resource_record_sets(
+            HostedZoneId='string', #pass this in manually
+            ChangeBatch={
+                'Changes': [
+                    {
+                        'Action': 'UPSERT',
+                        'ResourceRecordSet': {
+                            'Name': dns,
+                            'Type': 'A',
+                            'ResourceRecords': [
+                                {
+                                'Value': ip,
+                                },
+                            ],},},],},)
+        elif order = "dns":
+            response = client.change_resource_record_sets(
+            HostedZoneId='string', #pass this in manually
+            ChangeBatch={
+                'Changes': [
+                 {
+                     'Action': 'UPSERT',
+                     'ResourceRecordSet': {
+                         'Name': dns,
+                         'Type': 'A',
+                         'ResourceRecords': [
+                             {
+                             'Value': ip,
+                             },
+                         ],},},],},)
+
 
     def R53_create_record(ip, dns):
         response = client.change_resource_record_sets(
@@ -162,6 +200,12 @@ class NetboxRoute53:
                                 },]}
                         ],},},],},)
 
+                        #Todo:
+                        #Test that this properly creates a record
+                        #Test that the tag is properly added
+                        #Test that for any ip or dns, it will create the right record
+
+
        #Remember to add a tag when creating records that indicates this script created them
 
        #Name (string) -- [REQUIRED]
@@ -184,3 +228,9 @@ class NetboxRoute53:
                 #in what gets returned
 
     #note, there will be alot of parameter passing. When this function progresses, find a way to keep it simple (ie: master variable)
+
+
+    #Todo:
+    #Fill this command out once all the other commands work flawlessly
+    #Test this command with foo data
+    #Test this command against netbox data
