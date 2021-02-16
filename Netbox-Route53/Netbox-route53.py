@@ -50,8 +50,8 @@ class NetboxRoute53:
             sys.exit(1)
 
         client = boto3.client(
-            's3',
-            aws_access_key_id=self.r53_id,,
+            'route53',
+            aws_access_key_id=self.r53_id,
             aws_secret_access_key=self.r53_key,
             aws_session_token=self.r53_token
         )
@@ -83,6 +83,17 @@ class NetboxRoute53:
     #Figure out the variable returning
 
 #side note, when eventually using this function, tie a variable to get_nb_records and pass it in as the parameter
+
+   def get_route53_records(ip, dns):
+       response = client.list_resource_record_sets(
+       HostedZoneId='string',
+       StartRecordName='string',
+       StartRecordType='A',
+       StartRecordIdentifier='string',
+       MaxItems='string'
+       )
+
+
    def check_and_update_r53_record(nb_ip, nb_dns):
        #IMPORTANT: Only update records you added. Make this the first thing you check before searching for route53 records
        #Use a tag like "is discovered" or "nbr53 marked"
@@ -148,7 +159,7 @@ class NetboxRoute53:
         order = update
         if order = "ip":
             response = client.change_resource_record_sets(
-            HostedZoneId='string', #pass this in manually
+            HostedZoneId='string', #pass this in manually or have it able to be set in an easy way. Hard coding this wont be useful
             ChangeBatch={
                 'Changes': [
                     {
@@ -163,7 +174,7 @@ class NetboxRoute53:
                             ],},},],},)
         elif order = "dns":
             response = client.change_resource_record_sets(
-            HostedZoneId='string', #pass this in manually
+            HostedZoneId='string', #Same as above
             ChangeBatch={
                 'Changes': [
                  {
