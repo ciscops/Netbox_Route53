@@ -84,14 +84,53 @@ class NetboxRoute53:
 
 #side note, when eventually using this function, tie a variable to get_nb_records and pass it in as the parameter
 
-   def get_route53_records(ip, dns):
+    #print(R53['ResourceRecordSets'][n]['Name'])
+    #print(R53['ResourceRecordSets'][n]['Type'])
+    #print(R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value'])
+
+    #print(R53_record)
+
+
+    def discover_route53_records(dns, ip):
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='', StartRecordName=dns)
+        R53_record = json.dumps(R53_get_response)
+        R53 = json.loads(R53_record)
+        if ip == R53['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']:
+            print("success")
+
+
+    test = discover_route53_records("record.nbtestdomain.com", "10.10.10.10")
+
+
+    #Todo:
+    #Add ability to deal with bad records
+    #Follow logic of dns being the main check. If dns doesnt exist make it
+    #If it does, check ip , if it matches success
+    #If it doesnt, upsert the right ip (All you have to do is pass in the record name when doing upset command)
+
+    #The code is there to discard a record if it isnt "A" - keep in mind
+    #Everytime you create a record, create a second txt record with the record name and the tag
+    #When updating, check this first, if no txt record exists dont update
+    #Make this a new function like "Check tag" and pass in the dns
+
+    #This todo list is important 
+
+
+
+   def get_route53_records():
        response = client.list_resource_record_sets(
        HostedZoneId='string',
-       StartRecordName='string',
        StartRecordType='A',
-       StartRecordIdentifier='string',
-       MaxItems='string'
        )
+
+       return response
+
+for nbrecord in netbox
+ip = nbrecord.ip
+for R53record in route53 a record (the big text jumble thingy)
+ if "ip" in record
+        if nb hostname in record
+    return ip and hostname
 
 
    def check_and_update_r53_record(nb_ip, nb_dns):
