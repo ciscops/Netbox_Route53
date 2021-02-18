@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta
-import os
-import sys
-import logging
-import pynetbox
-import route53
 import boto3
+import logging
 import json
+import os
+import pynetbox
+import sys
+import route53
+
+
 
 class NetboxRoute53:
     def __init_(self):
@@ -13,6 +15,7 @@ class NetboxRoute53:
         # Initialize logging
         logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
         self.logging = logging.getLogger()
+        # Review the need for this
 
         # Initialize Netbox
         if "NETBOX_URL" in os.environ:
@@ -86,9 +89,11 @@ class NetboxRoute53:
     # To record integrator
     def discover_route53_records(dns, ip):
     R53_get_response = client.list_resource_record_sets(HostedZoneId=self.r53_zone_id, StartRecordName=dns)
+    # To change from dns specific search to all record search, remove StartRecordName 
     R53_record = json.dumps(R53_get_response)
     R53 = json.loads(R53_record)
     tag = get_r53_record_tag(dns)
+    # if else to prevent no record existing error
     if dns in R53_record:
         R53_ip = R53['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']
         R53_Record_name = R53['ResourceRecordSets'][0]['Name']
