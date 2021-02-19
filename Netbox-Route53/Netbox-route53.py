@@ -88,47 +88,76 @@ class NetboxRoute53:
     # Checks if a netbox record exists in route53, updates record accordingly and returns relevant information
     # To record integrator
     def discover_route53_records(dns, ip):
-    R53_get_response = client.list_resource_record_sets(HostedZoneId=self.r53_zone_id, StartRecordName=dns)
-    # To change from dns specific search to all record search, remove StartRecordName 
-    R53_record = json.dumps(R53_get_response)
-    R53 = json.loads(R53_record)
-    tag = get_r53_record_tag(dns)
-    # if else to prevent no record existing error
-    if dns in R53_record:
-        R53_ip = R53['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']
-        R53_Record_name = R53['ResourceRecordSets'][0]['Name']
-        R53_Record_type = R53['ResourceRecordSets'][0]['Type']
-        if R53_Record_type == 'A':
-            if R53_Record_name == dns:
-                if ip == R53_ip:
-                    return True
-                else:
-                    print("The ip passed in does not match record: " + dns)
-                    if tag == True:
-                        update_r53_record(dns, ip)
-                        return "Retryrecord"
-                    else:
-                        print("Record not tagged, can't update")
-            else:
-                return False
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='Z0018703VMIFJQV4XXIZ')
+        R53_record = json.dumps(R53_get_response)
+        R53 = json.loads(R53_record)
+        nb_dns  = '''"''' + dns + '''"'''
+        nb_ip = '''"''' + ip + '''"'''
+        print("Checking record" + " " + dns + " " + ip)
+        if nb_dns in R53_record:
+            check_route53_record(dns, ip)
+        elif nb_ip in R53_record:
+            check_route53_record(dns, ip)
         else:
-            return "NotArecord"
-    else:
-        return False
+            return False
+
+    def check_route53_record(dns, ip):
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='Z0018703VMIFJQV4XXIZ')
+        R53_record = json.dumps(R53_get_response)
+        R53 = json.loads(R53_record)
+        tag = get_r53_record_tag(dns)
+        try:
+            n = 0
+            while n < 101:
+                R53_Record_type = R53['ResourceRecordSets'][n]['Type']
+                R53_ip = R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
+                R53_Record_name = R53['ResourceRecordSets'][n]['Name']
+                #print("Checking if " + ip + " Matches " + R53_ip)
+                if R53_Record_name == dns:
+                    if R53_ip == ip:
+                        print("Record is a complete match")
+                        return True
+                    else:
+                        print("The ip passed in does not match the dns")
+                        if tag == True:
+                            print("Updating record")
+                            update_r53_record(dns, ip)
+                            return "Retryrecord"
+                        else:
+                            print("Record not tagged, cant update")
+                            return
+                    n += 1
+                elif ip == R53_ip:
+                    print("catch")
+                    if get_r53_record_tag(R53_Record_name) == True:
+                        print("Record exists, but Dns is wrong, cleaning...")
+                        delete_r53_record(R53_Record_name, ip, "A")
+                        delete_r53_record(R53_Record_name, "\"nbr53\"", "TXT")
+                        create_r53_record(dns, ip)
+                        print("Record cleaned")
+                    else:
+                        print("Record not tagged, cant update")
+                        return
+                        n += 1
+                else:
+                    n += 1
+        except:
+            pass
+
 
     # Checks if a record that needs to be updated, is tagged with "nbr53"
     def get_r53_record_tag(dns):
-    R53_get_response = client.list_resource_record_sets(HostedZoneId=self.r53_zone_id, StartRecordName=dns, StartRecordType="TXT")
-    R53_record = json.dumps(R53_get_response)
-    R53 = json.loads(R53_record)
-    if dns in R53_record:
-        R53_tag = R53['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']
-        R53_Record_name = R53['ResourceRecordSets'][0]['Name']
-        R53_Record_type = R53['ResourceRecordSets'][0]['Type']
-        if R53_Record_type == 'TXT':
-            if R53_Record_name == dns:
-                if R53_tag == "\"nbr53\"":
-                    return True
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='Z0018703VMIFJQV4XXIZ', StartRecordName=dns, StartRecordType="TXT")
+        R53_record = json.dumps(R53_get_response)
+        R53 = json.loads(R53_record)
+        if dns in R53_record:
+            R53_tag = R53['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']
+            R53_Record_name = R53['ResourceRecordSets'][0]['Name']
+            R53_Record_type = R53['ResourceRecordSets'][0]['Type']
+            if R53_Record_type == 'TXT':
+                if R53_Record_name == dns:
+                    if R53_tag == "\"nbr53\"":
+                        return True
 
     # Updates a record's ip if it is incorrect
     def update_r53_record(dns, ip):
@@ -181,14 +210,15 @@ class NetboxRoute53:
             sep = '/'
             nb_ip = ip.split(sep, 2)[0]
             checkrecord = discover_route53_records(dns, nb_ip)
+
             #The addition of HZ_Name has to do with hosted zones. This functionallity is easily removable
             if checkrecord == True:
                 print("Record exists")
             elif checkrecord == "NotArecord":
-                print("Bad record")
+                print("Not A valid record")
                 #This is here just incase it catches a non A record that passed in
             elif checkrecord == "Retryrecord":
-                print("Retrying record: " + dns)
+                print("Retrying record: ")
                 checkrecord = discover_route53_records(dns, nb_ip)
                 if checkrecord == True:
                     print("ip set properly, continuing...")
@@ -196,3 +226,8 @@ class NetboxRoute53:
                 print("Record doesn't exist, creating record...")
                 create_r53_record(dns, nb_ip)
                 print("Record created, continuing...")
+            elif checkrecord == "CleanRecord":
+                print("Record cleaned continuing...")
+                checkrecord = discover_route53_records(dns, nb_ip)
+                if checkrecord == True:
+                    print("Record cleaned continuing...")
