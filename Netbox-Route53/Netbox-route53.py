@@ -88,7 +88,7 @@ class NetboxRoute53:
     # Checks if a netbox record exists in route53, updates record accordingly and returns relevant information
     # To record integrator
     def discover_route53_records(dns, ip):
-        R53_get_response = client.list_resource_record_sets(HostedZoneId='Z0018703VMIFJQV4XXIZ')
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='')
         R53_record = json.dumps(R53_get_response)
         R53 = json.loads(R53_record)
         nb_dns  = '''"''' + dns + '''"'''
@@ -102,7 +102,7 @@ class NetboxRoute53:
             return False
 
     def check_route53_record(dns, ip):
-        R53_get_response = client.list_resource_record_sets(HostedZoneId='Z0018703VMIFJQV4XXIZ')
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='')
         R53_record = json.dumps(R53_get_response)
         R53 = json.loads(R53_record)
         tag = get_r53_record_tag(dns)
@@ -147,7 +147,7 @@ class NetboxRoute53:
 
     # Checks if a record that needs to be updated, is tagged with "nbr53"
     def get_r53_record_tag(dns):
-        R53_get_response = client.list_resource_record_sets(HostedZoneId='Z0018703VMIFJQV4XXIZ', StartRecordName=dns, StartRecordType="TXT")
+        R53_get_response = client.list_resource_record_sets(HostedZoneId='', StartRecordName=dns, StartRecordType="TXT")
         R53_record = json.dumps(R53_get_response)
         R53 = json.loads(R53_record)
         if dns in R53_record:
