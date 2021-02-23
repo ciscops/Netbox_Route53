@@ -89,28 +89,21 @@ class NetboxRoute53:
         return ip_search
 
     def discover_route53_records(self, dns, ip):
-        R53_get_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
-        R53_record = json.dumps(R53_get_response)
-        R53 = json.loads(R53_record)
         nb_dns  = '''"''' + dns + '''"'''
         nb_ip = '''"''' + ip + '''"'''
-        if nb_dns in R53_record:
+        if nb_dns in self.R53_Record:
             self.check_route53_record(dns, ip)
-        elif nb_ip in R53_record:
+        elif nb_ip in self.R53_Record:
             self.check_route53_record(dns, ip)
         else:
             return False
 
     def check_route53_record(self, dns, ip):
-        R53_get_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
-        R53_record = json.dumps(R53_get_response)
-        R53 = json.loads(R53_record)
         tag = self.get_r53_record_tag(dns)
         v = self.R53_Record.count('''"Name"''')
         for n in range(0,v):
-            R53_Record_type = R53['ResourceRecordSets'][n]['Type']
-            R53_ip = R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
-            R53_Record_name = R53['ResourceRecordSets'][n]['Name']
+            R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
+            R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
             if R53_Record_name == dns:
                 if R53_ip == ip:
                     print("Record is a complete match")
@@ -135,10 +128,11 @@ class NetboxRoute53:
                     return
 
     def get_r53_record_tag(self, dns):
+        # For the tag check, this needs to be done with a dns query, it can't be done using the regular query
         R53_get_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id, StartRecordName=dns, StartRecordType="TXT")
         R53_record = json.dumps(R53_get_response)
         R53 = json.loads(R53_record)
-        if dns in R53_record:
+        if dns in self.R53_Record:
             R53_tag = R53['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']
             R53_Record_name = R53['ResourceRecordSets'][0]['Name']
             R53_Record_type = R53['ResourceRecordSets'][0]['Type']
