@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
-import boto3
 import logging
 import json
 import os
-import pynetbox
 import sys
-import route53
-
+import pynetbox
+import boto3
 
 # Either manually enter the necessary keys or set them as environment variables. The latter is recommended and examples are provided
 # Export Netbox: url & token as env variables....Examples:
@@ -110,7 +108,7 @@ class NetboxRoute53:
                     return True
                 else:
                     print("The ip passed in does not match the dns")
-                    if tag == True:
+                    if tag:
                         print("Updating record")
                         self.update_r53_record(dns, ip)
                         return
@@ -118,7 +116,7 @@ class NetboxRoute53:
                         print("Record not tagged, cant update")
                         return
             elif ip == R53_ip:
-                if self.get_r53_record_tag(R53_Record_name) == True:
+                if self.get_r53_record_tag(R53_Record_name):
                     print("Record exists, but Dns is wrong, cleaning...")
                     self.delete_r53_record(R53_Record_name, ip)
                     self.create_r53_record(dns, ip)
@@ -212,7 +210,7 @@ class NetboxRoute53:
             R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
             R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
             value = "1"
-            if self.get_r53_record_tag(R53_Record_name) == True:
+            if self.get_r53_record_tag(R53_Record_name):
                 if R53_Record_type == "A":
                     print("testing record: " + R53_Record_name)
                     for i in self.get_nb_records():
@@ -239,9 +237,9 @@ class NetboxRoute53:
             nb_ip = ip.split(sep, 2)[0]
             print("Checking record: " + dns + " " + ip)
             checkrecord = self.discover_route53_records(dns, nb_ip)
-            if checkrecord == True:
+            if checkrecord:
                 print("Record exists")
-            elif checkrecord == False:
+            else:
                 print("Record doesn't exist, creating record...")
                 self.create_r53_record(dns, nb_ip)
                 print("Record created, continuing...")
