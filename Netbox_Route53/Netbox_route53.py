@@ -39,7 +39,6 @@ class NetboxRoute53:
 
         self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
         self.nb_ip_addresses = self.nb.ipam.ip_addresses.all()
-
         # Custom tag for marking records in route53 - this can be changed to any name
         self.r53_tag = "\"nbr53\""
 
@@ -80,23 +79,29 @@ class NetboxRoute53:
         self.R53_Record = json.dumps(R53_get_response)
         self.R53 = json.loads(self.R53_Record)
 
+        self.dns_string = ""
+        for i in self.nb_ip_addresses:
+            nb_dns = i.dns_name + "." + self.HZ_Name
+            self.dns_string += nb_dns
+
+
     def get_nb_records(self):
         timespan = datetime.today() - timedelta(hours=100, minutes=0)
         timespan.strftime('%Y-%m-%dT%XZ')
         ip_search = self.nb.ipam.ip_addresses.filter(within = self.nb_ip_addresses, last_updated__gte = timespan)
         return ip_search
 
-    def discover_route53_records(self, dns, ip):
+    def check_record_exists(self, dns, ip):
         nb_dns  = '''"''' + dns + '''"'''
+        r53_dns = '''"Name": ''' + nb_dns
         nb_ip = '''"''' + ip + '''"'''
-        if nb_dns in self.R53_Record:
-            self.check_route53_record(dns, ip)
-        elif nb_ip in self.R53_Record:
-            self.check_route53_record(dns, ip)
+        r53_ip = '''"Value": ''' + nb_ip
+        if r53_dns in self.R53_Record or r53_ip in self.R53_Record:
+            return True
         else:
             return False
 
-    def check_route53_record(self, dns, ip):
+    def verify_and_update(self, dns, ip):
         tag = self.get_r53_record_tag(dns)
         v = self.R53_Record.count('''"Name"''')
         for n in range(0,v):
@@ -105,25 +110,26 @@ class NetboxRoute53:
             if R53_Record_name == dns:
                 if R53_ip == ip:
                     print("Record is a complete match")
-                    return True
+                    break
                 else:
                     print("The ip passed in does not match the dns")
                     if tag:
                         print("Updating record")
                         self.update_r53_record(dns, ip)
-                        return
+                        break
                     else:
                         print("Record not tagged, cant update")
-                        return
+                        break
             elif ip == R53_ip:
                 if self.get_r53_record_tag(R53_Record_name):
                     print("Record exists, but Dns is wrong, cleaning...")
                     self.delete_r53_record(R53_Record_name, ip)
                     self.create_r53_record(dns, ip)
                     print("Record cleaned")
+                    break
                 else:
                     print("Record not tagged, cant update")
-                    return
+                    break
 
     def get_r53_record_tag(self, dns):
         # For the tag check, this needs to be done with a dns query, it can't be done using the regular query
@@ -203,43 +209,49 @@ class NetboxRoute53:
                         'ResourceRecords' : [{'Value': self.r53_tag}]
                       }}]})
 
+
+    def purge_r53_records(self, R53_Record_name, R53_ip, ip):
+        print("Checking record: " + R53_Record_name + " " + R53_ip)
+        if R53_Record_name in self.dns_string or R53_ip in ip:
+            print("Record exists")
+        else:
+            self.delete_r53_record(R53_Record_name, R53_ip)
+            print("purge: " + R53_Record_name + " " + R53_ip)
+
+    # In the case that a dns name is changed, and the script is run, clean_r53_records wont
+    # find that dns and hence won't attempt to clean it. Running the script again will clean it
     def clean_r53_records(self):
+        print("Record cleaning...")
+        ip = str(self.nb_ip_addresses)
         v = self.R53_Record.count('''"Name"''')
-        for n in range(0,v):
-            R53_Record_type = self.R53['ResourceRecordSets'][n]['Type']
-            R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
-            R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
-            value = "1"
-            if self.get_r53_record_tag(R53_Record_name):
-                if R53_Record_type == "A":
-                    print("testing record: " + R53_Record_name)
-                    for i in self.get_nb_records():
-                        nb_dns = i.dns_name + "." + self.HZ_Name
-                        ip = str(i)
-                        sep = '/'
-                        nb_ip = ip.split(sep, 2)[0]
-                        if R53_Record_name == nb_dns and R53_ip == nb_ip:
-                            print("record exists")
-                            value = "1"
-                            break
-                        else:
-                            value = "2"
-            if value == "2":
-                self.delete_r53_record(R53_Record_name, R53_ip)
-                print("purge: " + R53_Record_name)
+        if self.nb_ip_addresses != []:
+            if v > 2:
+                for n in range(0,v):
+                    R53_Record_type = self.R53['ResourceRecordSets'][n]['Type']
+                    R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
+                    R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
+                    if R53_Record_type == 'A':
+                        if self.get_r53_record_tag(R53_Record_name):
+                            self.purge_r53_records(R53_Record_name, R53_ip, ip)
+        else:
+            print("No records exist in netbox")
+
+
 
     def integrate_records(self):
+        #This could be simplified
+        print("Record integration...")
         nb_records = self.get_nb_records()
         for i in nb_records:
-            dns = i.dns_name + "." + self.HZ_Name
+            nb_dns = i.dns_name + "." + self.HZ_Name
             ip = str(i)
             sep = '/'
             nb_ip = ip.split(sep, 2)[0]
-            print("Checking record: " + dns + " " + ip)
-            checkrecord = self.discover_route53_records(dns, nb_ip)
-            if checkrecord:
+            print("Checking record: " + nb_dns + " " + ip)
+            if self.check_record_exists(nb_dns, nb_ip):
                 print("Record exists")
+                print("Verifying record...")
+                self.verify_and_update(nb_dns, nb_ip)
             else:
-                print("Record doesn't exist, creating record...")
-                self.create_r53_record(dns, nb_ip)
+                self.create_r53_record(nb_dns, nb_ip)
                 print("Record created, continuing...")
