@@ -5,6 +5,7 @@ from Netbox_Route53.Netbox_route53 import NetboxRoute53
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
 def lambda_handler(event):
     logger.debug('new event received: %s', str(event))
     start_time = datetime.datetime.now()
