@@ -98,8 +98,7 @@ class NetboxRoute53:
         r53_ip = '''"Value": ''' + nb_ip
         if r53_dns in self.R53_Record or r53_ip in self.R53_Record:
             return True
-        else:
-            return False
+        return False
 
     def verify_and_update(self, dns, ip):
         tag = self.get_r53_record_tag(dns)
@@ -111,25 +110,26 @@ class NetboxRoute53:
                 if R53_ip == ip:
                     print("Record is a complete match")
                     break
-                else:
-                    print("The ip passed in does not match the dns")
-                    if tag:
-                        print("Updating record")
-                        self.update_r53_record(dns, ip)
-                        break
-                    else:
-                        print("Record not tagged, cant update")
-                        break
-            elif ip == R53_ip:
+                #else:
+                print("The ip passed in does not match the dns")
+                if tag:
+                    print("Updating record")
+                    self.update_r53_record(dns, ip)
+                    break
+                #else:
+                print("Record not tagged, cant update")
+                break
+            #elif ip == R53_ip:
+            if ip == R53_ip:
                 if self.get_r53_record_tag(R53_Record_name):
                     print("Record exists, but Dns is wrong, cleaning...")
                     self.delete_r53_record(R53_Record_name, ip)
                     self.create_r53_record(dns, ip)
                     print("Record cleaned")
                     break
-                else:
-                    print("Record not tagged, cant update")
-                    break
+                #else:
+                print("Record not tagged, cant update")
+                break
 
     def get_r53_record_tag(self, dns):
         # For the tag check, this needs to be done with a dns query, it can't be done using the regular query
@@ -144,9 +144,10 @@ class NetboxRoute53:
                 if R53_Record_name == dns:
                     if R53_tag == self.r53_tag:
                         return True
+        return None
 
     def update_r53_record(self, dns, ip):
-        response = self.client.change_resource_record_sets(
+        self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
                 'Comment': '',
@@ -163,7 +164,7 @@ class NetboxRoute53:
                                 },],}},]})
 
     def create_r53_record(self, dns, ip):
-        response = self.client.change_resource_record_sets(
+        self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
             'Changes': [
@@ -186,7 +187,7 @@ class NetboxRoute53:
                 }}]})
 
     def delete_r53_record(self, dns, ip):
-        response = self.client.change_resource_record_sets(
+        self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
                 'Comment': '',
