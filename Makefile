@@ -1,14 +1,14 @@
 # Makefile
 PYTHON_EXE = python3
-PROJECT_NAME="myproject"
+PROJECT_NAME="Netbox_Route53_Integration"
 TOPDIR = $(shell git rev-parse --show-toplevel)
-PYDIRS="myproject"
+PYDIRS="Netbox_Route53"
 VENV = venv_$(PROJECT_NAME)
 VENV_BIN=$(VENV)/bin
-SRC_FILES := $(shell find myproject -name \*.py)
+SRC_FILES := $(shell find Netbox_Route53 -name \*.py)
 SPHINX_DEPS := $(shell find docs/source)
 GENERATED_DOC_SOURCES := $(shell find docs/source -maxdepth 1 -type f -name \*.rst -not -name index.rst)
-NON_PYTHON_LIBS := $(shell ls | grep -v myproject)
+NON_PYTHON_LIBS := $(shell ls | grep -v Netbox_Route53)
 
 help: ## Display help
 	@awk -F ':|##' \
