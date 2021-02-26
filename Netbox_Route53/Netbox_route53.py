@@ -62,12 +62,8 @@ class NetboxRoute53:
             logging.error("Environment variable ROUTE53_HOSTEDZONE_ID must be set")
             sys.exit(1)
 
-         # initiate connection to Route53 Via Boto3
-        self.client = boto3.client(
-             'route53',
-             aws_access_key_id=self.r53_id,
-             aws_secret_access_key=self.r53_key
-        )
+        # initiate connection to Route53 Via Boto3
+        self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
 
         # Get hosted_zone domain name for appending to record names
         Hosted_zone_response = self.client.get_hosted_zone(Id=self.r53_zone_id)
@@ -84,15 +80,14 @@ class NetboxRoute53:
             nb_dns = i.dns_name + "." + self.HZ_Name
             self.dns_string += nb_dns
 
-
     def get_nb_records(self):
         timespan = datetime.today() - timedelta(hours=100, minutes=0)
         timespan.strftime('%Y-%m-%dT%XZ')
-        ip_search = self.nb.ipam.ip_addresses.filter(within = self.nb_ip_addresses, last_updated__gte = timespan)
+        ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses, last_updated__gte=timespan)
         return ip_search
 
     def check_record_exists(self, dns, ip):
-        nb_dns  = '''"''' + dns + '''"'''
+        nb_dns = '''"''' + dns + '''"'''
         r53_dns = '''"Name": ''' + nb_dns
         nb_ip = '''"''' + ip + '''"'''
         r53_ip = '''"Value": ''' + nb_ip
@@ -103,7 +98,7 @@ class NetboxRoute53:
     def verify_and_update(self, dns, ip):
         tag = self.get_r53_record_tag(dns)
         v = self.R53_Record.count('''"Name"''')
-        for n in range(0,v):
+        for n in range(0, v):
             R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
             R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
             if R53_Record_name == dns:
@@ -133,7 +128,9 @@ class NetboxRoute53:
 
     def get_r53_record_tag(self, dns):
         # For the tag check, this needs to be done with a dns query, it can't be done using the regular query
-        R53_get_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id, StartRecordName=dns, StartRecordType="TXT")
+        R53_get_response = self.client.list_resource_record_sets(
+            HostedZoneId=self.r53_zone_id, StartRecordName=dns, StartRecordType="TXT"
+        )
         R53_record = json.dumps(R53_get_response)
         R53 = json.loads(R53_record)
         if dns in self.R53_Record:
@@ -150,7 +147,8 @@ class NetboxRoute53:
         self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
-                'Comment': '',
+                'Comment':
+                '',
                 'Changes': [
                     {
                         'Action': 'UPSERT',
@@ -161,55 +159,71 @@ class NetboxRoute53:
                             'ResourceRecords': [
                                 {
                                     'Value': ip,
-                                },],}},]})
+                                },
+                            ],
+                        }
+                    },
+                ]
+            }
+        )
 
     def create_r53_record(self, dns, ip):
         self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
-            'Changes': [
-              {
-                'Action': 'CREATE',
-                'ResourceRecordSet' : {
-                  'Name' : dns,
-                  'Type' : 'A',
-                  'TTL' : 123,
-                  'ResourceRecords' : [{'Value': ip}]
-                }
-              },
-              {
-                'Action': 'CREATE',
-                'ResourceRecordSet' : {
-                  'Name' : dns,
-                  'Type' : 'TXT',
-                  'TTL' : 123,
-                  'ResourceRecords' : [{'Value': self.r53_tag}]
-                }}]})
+                'Changes': [{
+                    'Action': 'CREATE',
+                    'ResourceRecordSet': {
+                        'Name': dns,
+                        'Type': 'A',
+                        'TTL': 123,
+                        'ResourceRecords': [{
+                            'Value': ip
+                        }]
+                    }
+                }, {
+                    'Action': 'CREATE',
+                    'ResourceRecordSet': {
+                        'Name': dns,
+                        'Type': 'TXT',
+                        'TTL': 123,
+                        'ResourceRecords': [{
+                            'Value': self.r53_tag
+                        }]
+                    }
+                }]
+            }
+        )
 
     def delete_r53_record(self, dns, ip):
         self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
-                'Comment': '',
-                'Changes': [
-                    {
-                      'Action': 'DELETE',
-                      'ResourceRecordSet' : {
-                        'Name' : dns,
-                        'Type' : 'A',
-                        'TTL' : 123,
-                        'ResourceRecords' : [{'Value': ip}]
-                      }
-                    },
-                    {
-                      'Action': 'DELETE',
-                      'ResourceRecordSet' : {
-                        'Name' : dns,
-                        'Type' : 'TXT',
-                        'TTL' : 123,
-                        'ResourceRecords' : [{'Value': self.r53_tag}]
-                      }}]})
-
+                'Comment':
+                '',
+                'Changes': [{
+                    'Action': 'DELETE',
+                    'ResourceRecordSet': {
+                        'Name': dns,
+                        'Type': 'A',
+                        'TTL': 123,
+                        'ResourceRecords': [{
+                            'Value': ip
+                        }]
+                    }
+                }, {
+                    'Action': 'DELETE',
+                    'ResourceRecordSet': {
+                        'Name': dns,
+                        'Type': 'TXT',
+                        'TTL': 123,
+                        'ResourceRecords': [{
+                            'Value': self.r53_tag
+                        }]
+                    }
+                }]
+            }
+        )
 
     def purge_r53_records(self, R53_Record_name, R53_ip, ip):
         print("Checking record: " + R53_Record_name + " " + R53_ip)
@@ -227,7 +241,7 @@ class NetboxRoute53:
         v = self.R53_Record.count('''"Name"''')
         if self.nb_ip_addresses != []:
             if v > 2:
-                for n in range(0,v):
+                for n in range(0, v):
                     R53_Record_type = self.R53['ResourceRecordSets'][n]['Type']
                     R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
                     R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
@@ -236,8 +250,6 @@ class NetboxRoute53:
                             self.purge_r53_records(R53_Record_name, R53_ip, ip)
         else:
             print("No records exist in netbox")
-
-
 
     def integrate_records(self):
         #This could be simplified
