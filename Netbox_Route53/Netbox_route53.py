@@ -78,11 +78,7 @@ class NetboxRoute53:
         HZ1 = json.loads(HZ)
         self.HZ_Name = HZ1['HostedZone']['Name']
 
-        R53_get_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
-        self.R53_Record = json.dumps(R53_get_response)
-        self.R53 = json.loads(self.R53_Record)
-
-        self.r53_record_dict = {}
+        self.R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
         self.r53_tag_dict = {}
 
         self.dns_string = ""
@@ -91,44 +87,39 @@ class NetboxRoute53:
             self.dns_string += nb_dns
 
     def get_nb_records(self):
-        timespan = datetime.today() - timedelta(days=self.timespan)
+        timespan = datetime.today() - timedelta(days=1)
         timespan.strftime('%Y-%m-%dT%XZ')
         ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses, last_updated__gte=timespan)
         return ip_search
 
     def check_record_exists(self, dns, ip):
-        if dns in self.r53_record_dict or ip in self.r53_record_dict.values():
+        values = [
+            value for value in self.R53_Record_response['ResourceRecordSets']
+            if dns in value['Name'] or ip in value['ResourceRecords'][0]['Value'] if value['Type'] == 'A'
+        ]
+        if values is not None:
             return True
         return False
 
     def get_r53_record_tag(self, dns):
         if dns in self.r53_tag_dict:
             return True
-        return None
+        return False
 
     def get_r53_records(self):
-        R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
-        R53_Record = json.dumps(R53_Record_response)
-        R53 = json.loads(R53_Record)
-        v = R53_Record.count('''"Name"''')
-        for n in range(0, v):
-            R53_Record_name = R53['ResourceRecordSets'][n]['Name']
-            R53_Tag_response = self.client.list_resource_record_sets(
-                HostedZoneId=self.r53_zone_id, StartRecordName=R53_Record_name, StartRecordType="TXT"
-            )
-            R53_ip = R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
-            R53_Record_type = self.R53['ResourceRecordSets'][n]['Type']
-            if R53_Record_type == 'A':
-                self.r53_record_dict.update({R53_Record_name: R53_ip})
+        for r53_record in self.R53_Record_response['ResourceRecordSets']:
+            R53_tag = r53_record['ResourceRecords'][0]['Value']
+            R53_Record_name = r53_record['Name']
+            R53_Record_type = r53_record['Type']
             if R53_Record_type == 'TXT':
-                R53_tag = R53_Tag_response['ResourceRecordSets'][0]['ResourceRecords'][0]['Value']
                 if R53_tag == self.r53_tag:
                     self.r53_tag_dict.update({R53_Record_name: R53_tag})
 
     def verify_and_update(self, dns, ip):
-        for x in self.r53_record_dict:
-            R53_ip = self.r53_record_dict[x]
-            R53_Record_name = x
+        for r53_record in self.R53_Record_response['ResourceRecordSets']:
+            R53_ip = r53_record['ResourceRecords'][0]['Value']
+            R53_Record_name = r53_record['Name']
+
             if R53_Record_name == dns:
                 if R53_ip == ip:
                     print("Record is a complete match")
@@ -236,6 +227,8 @@ class NetboxRoute53:
         self.logging.debug("Checking record %s", R53_ip)
         print("Checking record: " + R53_Record_name + " " + R53_ip)
         if R53_Record_name in self.dns_string or R53_ip in ip:
+            #This is essentially just searching through a string and needs to be
+            #changed at some point
             self.logging.debug("Record exists%s", R53_ip)
             print("Record exists")
         else:
@@ -248,16 +241,14 @@ class NetboxRoute53:
     def clean_r53_records(self):
         print("Record cleaning...")
         ip = str(self.nb_ip_addresses)
-        v = self.R53_Record.count('''"Name"''')
         if self.nb_ip_addresses != []:
-            if v > 2:
-                for n in range(0, v):
-                    R53_Record_type = self.R53['ResourceRecordSets'][n]['Type']
-                    R53_ip = self.R53['ResourceRecordSets'][n]['ResourceRecords'][0]['Value']
-                    R53_Record_name = self.R53['ResourceRecordSets'][n]['Name']
-                    if R53_Record_type == 'A':
-                        if self.get_r53_record_tag(R53_Record_name):
-                            self.purge_r53_records(R53_Record_name, R53_ip, ip)
+            for r53_record in self.R53_Record_response['ResourceRecordSets']:
+                R53_ip = r53_record['ResourceRecords'][0]['Value']
+                R53_Record_name = r53_record['Name']
+                R53_Record_type = r53_record['Type']
+                if R53_Record_type == 'A':
+                    if self.get_r53_record_tag(R53_Record_name):
+                        self.purge_r53_records(R53_Record_name, R53_ip, ip)
         else:
             self.logging.debug("Netbox recordset is empty %s")
             print("Netbox recordset is empty")
