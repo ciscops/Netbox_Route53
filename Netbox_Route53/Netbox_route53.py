@@ -39,7 +39,7 @@ class NetboxRoute53:
             sys.exit(1)
 
         if "NETBOX_TIMESPAN" in os.environ:
-            self.timespan = os.getenv("NETBOX_TIMESPAN")
+            self.timespan = int(os.getenv("NETBOX_TIMESPAN"))
         else:
             self.timespan = 1
 
@@ -86,7 +86,7 @@ class NetboxRoute53:
             self.dns_names.append(i.dns_name + "." + self.HZ_Name)
 
     def get_nb_records(self):
-        timespan = datetime.today() - timedelta(days=1)
+        timespan = datetime.today() - timedelta(days=self.timespan)
         timespan.strftime('%Y-%m-%dT%XZ')
         ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses, last_updated__gte=timespan)
         return ip_search
