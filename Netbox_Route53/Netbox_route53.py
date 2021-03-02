@@ -81,10 +81,9 @@ class NetboxRoute53:
         self.R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
         self.r53_tag_dict = {}
 
-        self.dns_string = ""
+        self.dns_names = []
         for i in self.nb_ip_addresses:
-            nb_dns = i.dns_name + "." + self.HZ_Name
-            self.dns_string += nb_dns
+            self.dns_names.append(i.dns_name + "." + self.HZ_Name)
 
     def get_nb_records(self):
         timespan = datetime.today() - timedelta(days=1)
@@ -226,7 +225,7 @@ class NetboxRoute53:
     def purge_r53_records(self, R53_Record_name, R53_ip, ip):
         self.logging.debug("Checking record %s", R53_ip)
         print("Checking record: " + R53_Record_name + " " + R53_ip)
-        if R53_Record_name in self.dns_string or R53_ip in ip:
+        if R53_Record_name in self.dns_names or R53_ip in ip:
             #This is essentially just searching through a string and needs to be
             #changed at some point
             self.logging.debug("Record exists%s", R53_ip)
