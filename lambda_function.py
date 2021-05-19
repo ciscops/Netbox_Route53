@@ -6,7 +6,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def lambda_handler(event):
+def lambda_handler(event, handle):
     logger.debug('new event received: %s', str(event))
     start_time = datetime.datetime.now()
     netbox_r53 = NetboxRoute53()

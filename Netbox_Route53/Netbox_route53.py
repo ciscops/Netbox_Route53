@@ -96,7 +96,7 @@ class NetboxRoute53:
             value for value in self.R53_Record_response['ResourceRecordSets']
             if dns in value['Name'] or ip in value['ResourceRecords'][0]['Value'] if value['Type'] == 'A'
         ]
-        if values is not None:
+        if len(values) > 0:
             return True
         return False
 
@@ -226,8 +226,6 @@ class NetboxRoute53:
         self.logging.debug("Checking record %s", R53_ip)
         print("Checking record: " + R53_Record_name + " " + R53_ip)
         if R53_Record_name in self.dns_names or R53_ip in ip:
-            #This is essentially just searching through a string and needs to be
-            #changed at some point
             self.logging.debug("Record exists%s", R53_ip)
             print("Record exists")
         else:
