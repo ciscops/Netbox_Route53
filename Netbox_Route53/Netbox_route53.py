@@ -16,7 +16,7 @@ import boto3
 # export ROUTE53_ID=KUYGDS783WSKI
 # export ROUTE53_KEY=JHIU243YT9F8UHSUY983Y
 # export ROUTE53_HOSTEDZONE_ID=EROTIJGOI438979800BW
-
+# export ROUTE53_TAG="nbr53" (note: the " " are necessary here)
 #Note: these are made up keys and are not valid
 
 
@@ -46,9 +46,6 @@ class NetboxRoute53:
         self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
         self.nb_ip_addresses = self.nb.ipam.ip_addresses.all()
 
-        # Custom tag for marking records in Route53 - this can be changed to any name
-        self.r53_tag = "\"nbr53\""
-
         # Initialize Route53
         if "ROUTE53_ID" in os.environ:
             self.r53_id = os.getenv("ROUTE53_ID")
@@ -68,6 +65,12 @@ class NetboxRoute53:
         else:
             logging.error("Environment variable ROUTE53_HOSTEDZONE_ID must be set")
             sys.exit(1)
+
+        # Gets the route53 custom record tag
+        if "ROUTE53_TAG" in os.environ:
+            self.r53_tag = os.getenv("ROUTE53_TAG")
+        else:
+            self.r53_tag = "\"nbr53\""
 
         # initiate connection to Route53 Via Boto3
         self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
@@ -118,7 +121,6 @@ class NetboxRoute53:
         for r53_record in self.R53_Record_response['ResourceRecordSets']:
             R53_ip = r53_record['ResourceRecords'][0]['Value']
             R53_Record_name = r53_record['Name']
-
             if R53_Record_name == dns:
                 if R53_ip == ip:
                     print("Record is a complete match")
@@ -265,7 +267,42 @@ class NetboxRoute53:
                 self.logging.debug("Verifying %s", nb_ip)
                 print("Record exists, Verifying record...")
                 self.verify_and_update(nb_dns, nb_ip)
+                print("Record " + nb_dns + " verified")
             else:
                 self.logging.debug("Adding %s", nb_ip)
                 self.create_r53_record(nb_dns, nb_ip)
                 print("Record created, continuing...")
+
+    def webhook_update_record(self, event):
+        self.get_r53_records()
+        testjson = json.loads((event["body"]))
+        request_type = testjson['event']
+        request_ip = testjson['data']['address']
+        request_dns = testjson['data']['dns_name']
+
+        nb_dns = request_dns + "." + self.HZ_Name
+        ip = str(request_ip)
+        sep = '/'
+        nb_ip = ip.split(sep, 2)[0]
+
+        rec_status = self.check_record_exists(nb_dns, nb_ip)
+
+        if rec_status == True:
+            if request_type == 'updated':
+                print("Updating record" + " " + request_ip)
+                self.verify_and_update(nb_dns, nb_ip)
+            elif request_type == 'deleted':
+                if self.get_r53_record_tag(nb_dns):
+                    print("Deleting record" + " " + request_ip)
+                    self.delete_r53_record(nb_dns, nb_ip)
+                else:
+                    print("Record not tagged, delete request denied")
+            else:
+                print("Record " + request_dns +
+                      " already exists, and cannot be duplicated")
+        else:
+            if request_type == 'created':
+                print("Creating record" + " " + request_ip)
+                self.create_r53_record(nb_dns, nb_ip)
+            else:
+                print("Record " + request_dns + " does not exist, and can only be created")

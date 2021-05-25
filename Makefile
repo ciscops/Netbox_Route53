@@ -1,7 +1,8 @@
 # Makefile
 PYTHON_EXE = python3
 PROJECT_NAME="Netbox_Route53_Integration"
-LAMBDA_FUNCTION="ppajersk-nb-r53"
+LAMBDA_FUNCTION1="ppajersk-nb-r53"
+LAMBDA_FUNCTION2="ppajersk-nbr53-auto"
 TOPDIR = $(shell git rev-parse --show-toplevel)
 PYDIRS="Netbox_Route53"
 VENV = venv_$(PROJECT_NAME)
@@ -108,8 +109,8 @@ lambda-packages.zip: lambda-packages ## Output all code to zip file
 	cd lambda-packages && zip -r ../$@ * # zip all python source code into output.zip
 
 lambda-layer: lambda-packages.zip
-	aws lambda publish-layer-version \
-	--layer-name $(LAMBDA_FUNCTION)-layer \
+	echo aws lambda publish-layer-version \
+	--layer-name $(LAMBDA_FUNCTION1)-layer \
 	--license-info "MIT" \
 	--zip-file fileb://$< \
 	--compatible-runtimes python3.8
@@ -117,9 +118,14 @@ lambda-layer: lambda-packages.zip
 lambda-function.zip: ## Output all code to zip file
 	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
 
-lambda-deploy: lambda-function.zip ## Deploy all code to aws
-	aws lambda update-function-code \
-	--function-name $(LAMBDA_FUNCTION) \
+lambda-upload-nb-r53:lambda-function.zip ## Deploy all code to aws
+	echo aws lambda update-function-code \
+	--function-name $(LAMBDA_FUNCTION1) \
+	--zip-file fileb://$<
+
+lambda-upload-nbr53-auto: lambda-function.zip ## Deploy all code to aws
+	echo aws lambda update-function-code \
+	--function-name $(LAMBDA_FUNCTION2) \
 	--zip-file fileb://$<
 
 .PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs
