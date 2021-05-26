@@ -285,7 +285,7 @@ class NetboxRoute53:
         nb_ip = ip.split(sep, 2)[0]
         rec_status = self.check_record_exists(nb_dns, nb_ip)
 
-        if rec_status == True:
+        if rec_status:
             if request_type == 'updated':
                 self.logging.debug("Updating %s", request_ip)
                 self.verify_and_update(nb_dns, nb_ip)
