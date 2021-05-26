@@ -1,8 +1,8 @@
 # Makefile
 PYTHON_EXE = python3
 PROJECT_NAME="Netbox_Route53_Integration"
-LAMBDA_FUNCTION1="ppajersk-nbr53-webhook"
-LAMBDA_FUNCTION2="ppajersk-nbr53-auto"
+LAMBDA_WEBHOOK_FUNCTION="ppajersk-nbr53-webhook"
+LAMBDA_AUTO_FUNCTION="ppajersk-nbr53-auto"
 LAMBDA_LAYER_NAME="nb-r53"
 TOPDIR = $(shell git rev-parse --show-toplevel)
 PYDIRS="Netbox_Route53"
@@ -126,12 +126,12 @@ lambda-function-auto.zip: lambda_function_auto.py ## Output all code to zip file
 
 lambda-upload-webhook:lambda-function-webhook.zip ## Deploy all code to aws
 	aws lambda update-function-code \
-	--function-name $(LAMBDA_FUNCTION1) \
+	--function-name $(LAMBDA_WEBHOOK_FUNCTION) \
 	--zip-file fileb://lambda-function-webhook.zip
 
 lambda-upload-auto: lambda-function-auto.zip ## Deploy all code to aws
 	aws lambda update-function-code \
-	--function-name $(LAMBDA_FUNCTION2) \
+	--function-name $(LAMBDA_AUTO_FUNCTION) \
 	--zip-file fileb://lambda-function-auto.zip
 
 .PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs
