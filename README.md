@@ -1,6 +1,6 @@
 # Netbox-Route53-Integration
 
-Lambda or Terminal run script, using Netbox as a source of truth to integrate ip/dns pairs into Route53 on a schedule basis.
+Lambda or Terminal run script, using Netbox as a source of truth to integrate ip/dns pairs into Route53 via webhook or on a schedule basis.
 
 -Requirements
 Boto3
@@ -9,14 +9,28 @@ Python
 
 -Description
 
-Netbox-Route53-Integration can be run either on terminal/cmd, or in AWS Lambda. Both methods use the single designated Lambda
-script, Lambda_function.py, as the main control for the integration script, Netbox_Route53.py. This lambda script, which can
-be run in both terminal/cmd and lambda, initially runs netbox_r53.integrate_records(), to import any records which have been
-modified in the timespan specified by the user in the environment variables. This function will check all records in that
-timespan, and verify if a) it already exists, or b) it doesn't, either leaving the record alone, or creating it in Route53
-respectively. Lambda_function.py then runs netbox_r53.clean_r53_records(), which checks if all records in Route53 match those
-in Netbox, purging any that do not. Additionally, the user will be required to specify a custom tag as an env var which will accompany
-each Route53 record created by this script, ensuring only those records can be updated or deleted.
+Netbox-Route53-Integration can be run either on terminal/cmd, or in AWS Lambda.
+The script runs in lambda either via webhook or on a timer, using apigateway or
+Cloudwatch respectively. There is a separate lambda script for each of the two
+functions (webhook and timer based) can run simultaneously in the same Aws
+account.
+
+The script file Netbox_route53.py, is identical between the two functions
+and the difference is in the lambda_fuction_(auto or webhook).py files, which
+specify which parts of the script will run.
+
+The webhook function reacts on an creation/update/deletion of a record in netbox
+and changes the record in route53 accordingly, using a combination of netbox
+webhooks and apigateway to communicate to the AWS function.
+
+The automatic version does a periodic sync between all current records in netbox,
+verifying all records match. It will then remove any route53 records that don't
+have a matching set in netbox. All records created in route53 are tagged with a
+user-specified tag which prevents the script from changing or deleting existing
+records without this tag.
+
+Netbox is seen as the source of truth by this script, and will only react to what
+is listed in netbox. There is not changes made to the records inside of netbox.
 
 
 -Aws Function Setup   
