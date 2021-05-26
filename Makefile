@@ -125,12 +125,12 @@ lambda-function-auto.zip: lambda_function_auto.py ## Output all code to zip file
 	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
 
 lambda-upload-webhook:lambda-function-webhook.zip ## Deploy all code to aws
-	echo aws lambda update-function-code \
+  aws lambda update-function-code \
 	--function-name $(LAMBDA_FUNCTION1) \
 	--zip-file fileb://lambda-function-webhook.zip
 
 lambda-upload-auto: lambda-function-auto.zip ## Deploy all code to aws
-	echo aws lambda update-function-code \
+  aws lambda update-function-code \
 	--function-name $(LAMBDA_FUNCTION2) \
 	--zip-file fileb://lambda-function-auto.zip
 
