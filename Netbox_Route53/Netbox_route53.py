@@ -279,30 +279,26 @@ class NetboxRoute53:
         request_type = testjson['event']
         request_ip = testjson['data']['address']
         request_dns = testjson['data']['dns_name']
-
         nb_dns = request_dns + "." + self.HZ_Name
         ip = str(request_ip)
         sep = '/'
         nb_ip = ip.split(sep, 2)[0]
-
         rec_status = self.check_record_exists(nb_dns, nb_ip)
 
         if rec_status == True:
             if request_type == 'updated':
-                print("Updating record" + " " + request_ip)
+                self.logging.debug("Updating %s", request_ip)
                 self.verify_and_update(nb_dns, nb_ip)
             elif request_type == 'deleted':
                 if self.get_r53_record_tag(nb_dns):
-                    print("Deleting record" + " " + request_ip)
+                    self.logging.debug("Deleting %s", request_ip)
                     self.delete_r53_record(nb_dns, nb_ip)
                 else:
-                    print("Record not tagged, delete request denied")
+                    self.logging.debug("Record not tagged: %s", request_ip)
             else:
-                print("Record " + request_dns +
-                      " already exists, and cannot be duplicated")
+                self.logging.debug("Record already exists: %s", request_ip)
+        elif request_type == 'created':
+            self.logging.debug("Creating %s", request_ip)
+            self.create_r53_record(nb_dns, nb_ip)
         else:
-            if request_type == 'created':
-                print("Creating record" + " " + request_ip)
-                self.create_r53_record(nb_dns, nb_ip)
-            else:
-                print("Record " + request_dns + " does not exist, and can only be created")
+            self.logging.debug("Record does not exist: %s", request_ip)
