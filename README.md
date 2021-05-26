@@ -33,10 +33,10 @@ https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/RunLambdaSchedule.htm
 (For the Netbox setup below, you will need the AWS API gateway Arn from creating an api gateway trigger)
 https://docs.aws.amazon.com/apigateway/latest/developerguide/getting-started.html
 
--Netbox Webhook Setup
-To enable Netbox webhooks
+-Netbox Webhook Setup \n
+To enable Netbox webhooks \n
 
-  Netbox>Admin>Webhooks>Add Webhook
+  Netbox>Admin>Webhooks>Add Webhook \n
 
   Name: ()
   Object types: (IP addess, prefix)
