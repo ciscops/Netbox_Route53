@@ -19,17 +19,18 @@ in Netbox, purging any that do not. Additionally, the user will be required to s
 each Route53 record created by this script, ensuring only those records can be updated or deleted.
 
 
--Aws Function Setup
+-Aws Function Setup   
 To prepare the framework inside AWS LAMBDA for uploading the script via Makefile commands
-Create two lambda functions, one titled for webhook, and one titled for auto timer based running
-Use Python version 3.8
+
+Create two lambda functions, one titled for webhook, and one titled for auto timer based running  
+Use Python version 3.8:   
 https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html
 
 -Aws Cloudwatch Trigger Setup
 (Start from step 2)
 https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/RunLambdaSchedule.html
 
--Aws API Gateway Trigger Setup
+-Aws API Gateway Trigger Setup  
 (For the Netbox setup below, you will need the AWS API gateway Arn from creating an api gateway trigger)
 https://docs.aws.amazon.com/apigateway/latest/developerguide/getting-started.html
 
@@ -39,12 +40,12 @@ To enable Netbox webhooks
   Netbox>Admin>Webhooks>Add Webhook
 
   Name: ()
-  Object types: (IP addess, prefix)
-  Enabled: (checked)
-  Type Create: (checked)
-  Type Update: (checked)
-  Type Delete: (checked)
-  URL: (AWS API gateway arn) < (See Api gateway trigger setup)
+  Object types: (IP addess, prefix)  
+  Enabled: (checked)  
+  Type Create: (checked)  
+  Type Update: (checked)  
+  Type Delete: (checked)  
+  URL: (AWS API gateway arn) < (See Api gateway trigger setup)  
   HTTP method: (POST)
   HTTP content type: (application/json)
 
@@ -53,16 +54,13 @@ To enable Netbox webhooks
   To push script to lamdba, use Makefile commands
 
   (Edit names to match the fuction names created in AWS LAMBDA, do this within your local makefile)
-  LAMBDA_WEBHOOK_FUNCTION=" " (For the Webhook function)
-  LAMBDA_AUTO_FUNCTION=" "    (For the timer based function)
+  LAMBDA_WEBHOOK_FUNCTION=" " (For the Webhook function)  
+  LAMBDA_AUTO_FUNCTION=" "    (For the timer based function)  
 
-  (Terminal/Cmd commands)
-  -aws configure (Input aws account access key, secret access key, region, and output format)
+  (Terminal/Cmd commands)   
+  -aws configure (Input aws account access key, secret access key, region, and output format)    
   -aws sts get-caller-identity (Verify details)
 
   -make lambda-layer (Complies script code)
-  -make lambda-upload-webhook (Uploads script for the webhook function to aws)
+  -make lambda-upload-webhook (Uploads script for the webhook function to aws)  
   -make lambda-upload-auto    (Uploads script for the schedule bases function to aws)
-
-
--DEBUG
