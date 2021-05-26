@@ -1,8 +1,9 @@
 # Makefile
 PYTHON_EXE = python3
 PROJECT_NAME="Netbox_Route53_Integration"
-LAMBDA_FUNCTION1="ppajersk-nb-r53"
+LAMBDA_FUNCTION1="ppajersk-nbr53-webhook"
 LAMBDA_FUNCTION2="ppajersk-nbr53-auto"
+LAMBDA_LAYER_NAME="nb-r53"
 TOPDIR = $(shell git rev-parse --show-toplevel)
 PYDIRS="Netbox_Route53"
 VENV = venv_$(PROJECT_NAME)
@@ -109,23 +110,28 @@ lambda-packages.zip: lambda-packages ## Output all code to zip file
 	cd lambda-packages && zip -r ../$@ * # zip all python source code into output.zip
 
 lambda-layer: lambda-packages.zip
-	echo aws lambda publish-layer-version \
-	--layer-name $(LAMBDA_FUNCTION1)-layer \
+	aws lambda publish-layer-version \
+	--layer-name $(LAMBDA_LAYER_NAME)-layer \
 	--license-info "MIT" \
-	--zip-file fileb://$< \
+	--zip-file fileb://lambda-packages.zip \
 	--compatible-runtimes python3.8
 
-lambda-function.zip: ## Output all code to zip file
+lambda-function-webhook.zip: lambda_function_webhook.py ## Output all code to zip file
+	cp lambda_function_webhook.py lambda_function.py
 	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
 
-lambda-upload-nb-r53:lambda-function.zip ## Deploy all code to aws
-	echo aws lambda update-function-code \
-	--function-name $(LAMBDA_FUNCTION1) \
-	--zip-file fileb://$<
+lambda-function-auto.zip: lambda_function_auto.py ## Output all code to zip file
+	cp lambda_function_auto.py lambda_function.py
+	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
 
-lambda-upload-nbr53-auto: lambda-function.zip ## Deploy all code to aws
-	echo aws lambda update-function-code \
+lambda-upload-webhook:lambda-function-webhook.zip ## Deploy all code to aws
+  aws lambda update-function-code \
+	--function-name $(LAMBDA_FUNCTION1) \
+	--zip-file fileb://lambda-function-webhook.zip
+
+lambda-upload-auto: lambda-function-auto.zip ## Deploy all code to aws
+  aws lambda update-function-code \
 	--function-name $(LAMBDA_FUNCTION2) \
-	--zip-file fileb://$<
+	--zip-file fileb://lambda-function-auto.zip
 
 .PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs
