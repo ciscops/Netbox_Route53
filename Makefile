@@ -1,7 +1,7 @@
 # Makefile
 PYTHON_EXE = python3
 PROJECT_NAME="Netbox_Route53_Integration"
-LAMBDA_WEBHOOK_FUNCTION="ppajersk-nbr53-webhook"
+LAMBDA_WEBHOOK_FUNCTION="ppajersk-nb-r53"
 LAMBDA_AUTO_FUNCTION="ppajersk-nbr53-auto"
 LAMBDA_LAYER_NAME="nb-r53"
 TOPDIR = $(shell git rev-parse --show-toplevel)
