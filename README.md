@@ -45,6 +45,10 @@ To prepare the framework inside AWS LAMBDA for uploading the script via Makefile
 (Start from step 2, set timer to run every 30 minutes)
 * [Aws docs Cloudwatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/RunLambdaSchedule.html)
 
+To store the timespan within cloudwatch timer for multiple timer use, under targets, constant(json text) paste
+the following:  {"Timespan": "1" }   (note, any other cloudwatch timers will be set up the same but with different time spans)
+
+If there is no cloudwatch timespan set, or is set incorrectly, the script will use the environment variable 
 
 -Aws API Gateway Trigger Setup  
 (For the Netbox setup below, you will need the AWS API gateway Arn from creating an api gateway trigger)
