@@ -84,13 +84,10 @@ class NetboxRoute53:
         self.R53_Record_response = self.client.list_resource_record_sets(
             HostedZoneId=self.r53_zone_id)
         self.r53_tag_dict = {}
+        self.r53_ip_dict = {}
 
-        self.dns_names = []
-        for i in self.nb_ip_addresses:
-            self.dns_names.append(i.dns_name + "." + self.HZ_Name)
-
-    def get_nb_records(self):
-        timespan = datetime.today() - timedelta(days=self.timespan)
+    def get_nb_records(self, nb_timespan):
+        timespan = datetime.today() - timedelta(days=nb_timespan)
         timespan.strftime('%Y-%m-%dT%XZ')
         ip_search = self.nb.ipam.ip_addresses.filter(
             within=self.nb_ip_addresses, last_updated__gte=timespan)
@@ -105,8 +102,14 @@ class NetboxRoute53:
             return True
         return False
 
-    def get_r53_record_tag(self, dns):
-        if dns in self.r53_tag_dict:
+    def route53_tag_creator(self, id):
+        tag = self.r53_tag
+        tag_strip = tag.strip('"')
+        return_tag = '"' + tag_strip + " " + id + '"'
+        return(return_tag)
+
+    def get_r53_record_tag(self, id):
+        if id in self.r53_tag_dict:
             return True
         return False
 
@@ -116,33 +119,37 @@ class NetboxRoute53:
             R53_Record_name = r53_record['Name']
             R53_Record_type = r53_record['Type']
             if R53_Record_type == 'TXT':
-                if R53_tag == self.r53_tag:
-                    self.r53_tag_dict.update({R53_Record_name: R53_tag})
+                sep = ' '
+                tag = R53_tag.split(sep, 1)[0] + '"'
+                id = R53_tag.split(sep, 1)[1]
+                id = id.strip('"')
+                if tag == self.r53_tag:
+                    self.r53_tag_dict.update({id: R53_Record_name})
 
-    def verify_and_update(self, dns, ip):
         for r53_record in self.R53_Record_response['ResourceRecordSets']:
-            R53_ip = r53_record['ResourceRecords'][0]['Value']
+            R53_tag = r53_record['ResourceRecords'][0]['Value']
             R53_Record_name = r53_record['Name']
-            if R53_Record_name == dns:
-                if R53_ip == ip:
-                    self.logging.debug("Record is a complete match")
-                    break
-                self.logging.debug("Ip does not match the dns")
-                if self.get_r53_record_tag(dns):
-                    self.logging.debug("Updating record")
-                    self.update_r53_record(dns, ip)
-                    break
-                self.logging.debug("Record not tagged, cant update")
-                break
-            if ip == R53_ip:
-                if self.get_r53_record_tag(R53_Record_name):
-                    self.logging.debug("Record exists, but Dns is wrong, updating...")
-                    self.delete_r53_record(R53_Record_name, ip)
-                    self.create_r53_record(dns, ip)
-                    self.logging.debug("Record cleaned")
-                    break
-                self.logging.debug("Record not tagged, cant update")
-                break
+            R53_Record_type = r53_record['Type']
+            if R53_Record_type == 'A':
+                if R53_Record_name in self.r53_tag_dict.values():
+                    ip = r53_record['ResourceRecords'][0]['Value']
+                    self.r53_ip_dict.update({R53_Record_name: ip})
+
+    def verify_and_update(self, dns, ip, id, tag):
+        R53_Record_name = self.r53_tag_dict[id]
+        R53_ip = self.r53_ip_dict[R53_Record_name]
+
+        if R53_Record_name == dns and R53_ip == ip:
+            self.logging.debug("Record is a complete match")
+        elif R53_Record_name != dns and R53_ip == ip:
+            self.logging.debug("Dns does not match")
+            self.delete_r53_record(R53_Record_name, ip, tag)
+            self.create_r53_record(dns, ip, tag)
+            self.logging.debug("Record cleaned")
+        elif R53_Record_name == dns and R53_ip != ip:
+            self.logging.debug("Ip does not match")
+            self.logging.debug("Updating record")
+            self.update_r53_record(R53_Record_name, ip)
 
     def update_r53_record(self, dns, ip):
         self.client.change_resource_record_sets(
@@ -168,7 +175,7 @@ class NetboxRoute53:
             }
         )
 
-    def create_r53_record(self, dns, ip):
+    def create_r53_record(self, dns, ip, tag):
         self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
@@ -189,14 +196,14 @@ class NetboxRoute53:
                         'Type': 'TXT',
                         'TTL': 123,
                         'ResourceRecords': [{
-                            'Value': self.r53_tag
+                            'Value': tag
                         }]
                     }
                 }]
             }
         )
 
-    def delete_r53_record(self, dns, ip):
+    def delete_r53_record(self, dns, ip, tag):
         self.client.change_resource_record_sets(
             HostedZoneId=self.r53_zone_id,
             ChangeBatch={
@@ -219,52 +226,67 @@ class NetboxRoute53:
                         'Type': 'TXT',
                         'TTL': 123,
                         'ResourceRecords': [{
-                            'Value': self.r53_tag
+                            'Value': tag
                         }]
                     }
                 }]
             }
         )
 
-    def purge_r53_records(self, R53_Record_name, R53_ip, ip):
-        self.logging.debug("Checking record %s", R53_ip)
-        if R53_Record_name in self.dns_names or R53_ip in ip:
-            self.logging.debug("Record exists %s", R53_ip)
-        else:
-            self.logging.debug("Purging record %s", R53_ip)
-            self.delete_r53_record(R53_Record_name, R53_ip)
-
     # In the case that a dns name is changed, and the script is run, clean_r53_records wont
     # find that dns and won't attempt to clean it. Running the script again will clean it
     def clean_r53_records(self):
         self.logging.debug("...Record cleaning...")
-        ip = str(self.nb_ip_addresses)
-        if self.nb_ip_addresses != []:
-            for r53_record in self.R53_Record_response['ResourceRecordSets']:
-                R53_ip = r53_record['ResourceRecords'][0]['Value']
-                R53_Record_name = r53_record['Name']
-                R53_Record_type = r53_record['Type']
-                if R53_Record_type == 'A':
-                    if self.get_r53_record_tag(R53_Record_name):
-                        self.purge_r53_records(R53_Record_name, R53_ip, ip)
+        self.get_r53_records()
+
+        nb_ip_list = {}
+        ip_search = self.nb.ipam.ip_addresses.filter(
+            within=self.nb_ip_addresses)
+        for i in ip_search:
+            nb_ip_list.update({str(i.id): i})
+
+        if nb_ip_list != {}:
+            for record in self.r53_tag_dict:
+                R53_Record_name = self.r53_tag_dict[record]
+                R53_ip = self.r53_ip_dict[R53_Record_name]
+                R53_tag = self.route53_tag_creator(record)
+                if record in nb_ip_list:
+                    self.logging.debug("Record exists %s", R53_Record_name)
+                else:
+                    self.logging.debug("Purging record %s", R53_Record_name)
+                    self.delete_r53_record(R53_Record_name, R53_ip, R53_tag)
         else:
             self.logging.debug("Netbox recordset is empty %s")
 
     # Check all records in Netbox against Route53, and update the tagged record's ip/dns pair if they are incorrect
-    def integrate_records(self):
+    def integrate_records(self, event):
+        try:
+            nb_timespan = json.loads((event["Timespan"]))
+        except:
+            nb_timespan = self.timespan
+            pass
+
         self.get_r53_records()
         self.logging.debug("Record integration...")
-        for i in self.get_nb_records():
+        for i in self.get_nb_records(nb_timespan):
+            nb_id = str(i.id)
             nb_dns = i.dns_name + "." + self.HZ_Name
             ip = str(i)
             sep = '/'
             nb_ip = ip.split(sep, 2)[0]
+            nb_tag = self.route53_tag_creator(nb_id)
             self.logging.debug("Checking %s", nb_ip + " " + nb_dns)
-            if self.check_record_exists(nb_dns, nb_ip):
-                self.verify_and_update(nb_dns, nb_ip)
+            #if self.check_record_exists(nb_dns, nb_ip):
+            if self.get_r53_record_tag(nb_id):
+                self.verify_and_update(nb_dns, nb_ip, nb_id, nb_tag)
             else:
                 self.logging.debug("Adding %s", nb_ip)
-                self.create_r53_record(nb_dns, nb_ip)
+                try:
+                    self.create_r53_record(nb_dns, nb_ip, nb_tag)
+                except:
+                    pass
+                    self.logging.debug("Error adding record, most likely a duplicate")
+
 
         self.clean_r53_records()
 
@@ -275,26 +297,25 @@ class NetboxRoute53:
         request_type = testjson['event']
         request_ip = testjson['data']['address']
         request_dns = testjson['data']['dns_name']
+        request_id = str(testjson['data']['id'])
         nb_dns = request_dns + "." + self.HZ_Name
         ip = str(request_ip)
         sep = '/'
         nb_ip = ip.split(sep, 2)[0]
-        rec_status = self.check_record_exists(nb_dns, nb_ip)
+        nb_tag = self.route53_tag_creator(request_id)
+        rec_status = self.get_r53_record_tag(request_id)
 
         if rec_status:
             if request_type == 'updated':
-                self.logging.debug("Updating %s", request_ip)
-                self.verify_and_update(nb_dns, nb_ip)
+                self.logging.debug("Updating %s", request_dns)
+                self.verify_and_update(nb_dns, nb_ip, request_id, nb_tag)
             elif request_type == 'deleted':
-                if self.get_r53_record_tag(nb_dns):
-                    self.logging.debug("Deleting %s", request_ip)
-                    self.delete_r53_record(nb_dns, nb_ip)
-                else:
-                    self.logging.debug("Record not tagged: %s", request_ip)
+                self.logging.debug("Deleting %s", request_dns)
+                self.delete_r53_record(nb_dns, nb_ip, nb_tag)
             else:
-                self.logging.debug("Record already exists: %s", request_ip)
+                self.logging.debug("Record already exists: %s", request_dns)
         elif request_type == 'created':
-            self.logging.debug("Creating %s", request_ip)
-            self.create_r53_record(nb_dns, nb_ip)
+            self.logging.debug("Creating %s", request_dns)
+            self.create_r53_record(nb_dns, nb_ip, nb_tag)
         else:
-            self.logging.debug("Record does not exist: %s", request_ip)
+            self.logging.debug("Record does not exist: %s", request_dns)
