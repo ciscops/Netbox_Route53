@@ -134,4 +134,4 @@ lambda-upload-auto: lambda-function-auto.zip ## Deploy all code to aws
 	--function-name $(LAMBDA_AUTO_FUNCTION) \
 	--zip-file fileb://lambda-function-auto.zip
 
-.PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs
+.PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs lambda-function-webhook.zip lambda-function-auto.zip
