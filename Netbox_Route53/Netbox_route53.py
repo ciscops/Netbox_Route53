@@ -64,14 +64,12 @@ class NetboxRoute53:
             self.r53_tag = "\"nbr53\""
 
         # initiate connection to Route53 Via Boto3
-        self.client = boto3.client(
-            'route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
+        self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
 
     def get_nb_records(self, nb_timespan):
         timespan = datetime.today() - timedelta(days=nb_timespan)
         timespan.strftime('%Y-%m-%dT%XZ')
-        ip_search = self.nb.ipam.ip_addresses.filter(
-            within=self.nb_ip_addresses, last_updated__gte=timespan)
+        ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses, last_updated__gte=timespan)
         return ip_search
 
     def check_record_exists(self, dns, ip):
@@ -87,7 +85,7 @@ class NetboxRoute53:
         tag = self.r53_tag
         tag_strip = tag.strip('"')
         return_tag = '"Tag: ' + tag_strip + ", Id: " + id + '"'
-        return(return_tag)
+        return (return_tag)
 
     def get_r53_record_tag(self, id):
         if id in self.r53_tag_dict:
@@ -103,8 +101,7 @@ class NetboxRoute53:
             hz_id = hz_id.strip('/hostedzone/')
             if dns + "." == hz_name:
                 self.r53_zone_id = hz_id
-                self.R53_Record_response = self.client.list_resource_record_sets(
-                    HostedZoneId=self.r53_zone_id)
+                self.R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
                 self.r53_tag_dict = {}
                 self.r53_ip_dict = {}
                 return True
@@ -249,15 +246,13 @@ class NetboxRoute53:
             hz_id = hz_id.strip('/hostedzone/')
             if hz_record_nmb > 2:
                 self.r53_zone_id = hz_id
-                self.R53_Record_response = self.client.list_resource_record_sets(
-                    HostedZoneId=hz_id)
+                self.R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=hz_id)
                 self.r53_tag_dict = {}
                 self.r53_ip_dict = {}
                 self.get_r53_records()
 
                 nb_ip_list = {}
-                ip_search = self.nb.ipam.ip_addresses.filter(
-                    within=self.nb_ip_addresses)
+                ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses)
                 for i in ip_search:
                     nb_ip_list.update({str(i.id): i})
 
@@ -267,13 +262,10 @@ class NetboxRoute53:
                         R53_ip = self.r53_ip_dict[R53_Record_name]
                         R53_tag = self.route53_tag_creator(record)
                         if record in nb_ip_list:
-                            self.logging.debug(
-                                "Record exists %s", R53_Record_name)
+                            self.logging.debug("Record exists %s", R53_Record_name)
                         else:
-                            self.logging.debug(
-                                "Purging record %s", R53_Record_name)
-                            self.delete_r53_record(
-                                R53_Record_name, R53_ip, R53_tag)
+                            self.logging.debug("Purging record %s", R53_Record_name)
+                            self.delete_r53_record(R53_Record_name, R53_ip, R53_tag)
                 else:
                     self.logging.debug("Netbox recordset is empty %s")
 
@@ -308,8 +300,7 @@ class NetboxRoute53:
                         self.create_r53_record(nb_dns, nb_ip, nb_tag)
                     except:
                         pass
-                        self.logging.debug(
-                            "Error adding record, most likely a duplicate")
+                        self.logging.debug("Error adding record, most likely a duplicate")
 
         self.clean_r53_records()
 
@@ -341,8 +332,7 @@ class NetboxRoute53:
                     self.logging.debug("Deleting %s", request_dns)
                     self.delete_r53_record(nb_dns, nb_ip, nb_tag)
                 else:
-                    self.logging.debug(
-                        "Record already exists: %s", request_dns)
+                    self.logging.debug("Record already exists: %s", request_dns)
             elif request_type == 'created':
                 self.logging.debug("Creating %s", request_dns)
                 self.create_r53_record(nb_dns, nb_ip, nb_tag)

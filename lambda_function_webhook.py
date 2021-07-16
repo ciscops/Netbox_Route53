@@ -23,7 +23,5 @@ def lambda_handler(event, handle):
         "headers": {
             "Content-Type": "application/json"
         },
-        "body": json.dumps({
-            "testkey ": "testval"
-        })
+        "body": json.dumps({"testkey ": "testval"})
     }

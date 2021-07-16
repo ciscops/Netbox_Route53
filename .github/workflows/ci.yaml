@@ -1,4 +1,4 @@
-name: Cidrbot PY CI
+name: Netbox_Route53
 on:
   pull_request:
     branches: [main]
