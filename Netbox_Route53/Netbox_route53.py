@@ -305,7 +305,7 @@ class NetboxRoute53:
                         self.create_r53_record(nb_dns, nb_ip, nb_tag)
                     except Exception:
                         self.logging.debug("Error adding record, most likely a duplicate")
-                        
+
         self.clean_r53_records()
 
     # Create/update/delete a single netbox record based on webhook request
