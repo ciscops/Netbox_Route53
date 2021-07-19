@@ -64,14 +64,17 @@ class NetboxRoute53:
             self.r53_tag = "\"nbr53\""
 
         # initiate connection to Route53 Via Boto3
-        self.client = boto3.client(
-            'route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
+        self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
+
+        self.r53_zone_id = ""
+        self.R53_Record_response = {}
+        self.r53_tag_dict = {}
+        self.r53_ip_dict = {}
 
     def get_nb_records(self, nb_timespan):
         timespan = datetime.today() - timedelta(days=nb_timespan)
         timespan.strftime('%Y-%m-%dT%XZ')
-        ip_search = self.nb.ipam.ip_addresses.filter(
-            within=self.nb_ip_addresses, last_updated__gte=timespan)
+        ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses, last_updated__gte=timespan)
         return ip_search
 
     def check_record_exists(self, dns, ip):
@@ -83,37 +86,37 @@ class NetboxRoute53:
             return True
         return False
 
-    def route53_tag_creator(self, id):
+    def route53_tag_creator(self, request_id):
         tag = self.r53_tag
         tag_strip = tag.strip('"')
-        return_tag = '"Tag: ' + tag_strip + ", Id: " + id + '"'
-        return(return_tag)
+        return_tag = '"Tag: ' + tag_strip + ", Id: " + request_id + '"'
+        return (return_tag)
 
-    def get_r53_record_tag(self, id):
-        if id in self.r53_tag_dict:
+    def get_r53_record_tag(self, request_id):
+        if request_id in self.r53_tag_dict:
             return True
         return False
 
     def get_fqdn_hz(self, dns):
-        try:
+        if len(dns) > 0 and '.' in dns:
             dns = dns.split('.', 1)[1]
-            response = self.client.list_hosted_zones_by_name(DNSName=dns)
-            hz_id = response['HostedZones'][0]['Id']
-            hz_name = response['HostedZones'][0]['Name']
-            hz_id = hz_id.strip('/hostedzone/')
-            if dns + "." == hz_name:
-                self.r53_zone_id = hz_id
-                self.R53_Record_response = self.client.list_resource_record_sets(
-                    HostedZoneId=self.r53_zone_id)
-                self.r53_tag_dict = {}
-                self.r53_ip_dict = {}
-                return True
-            else:
-                return False
-                #print("Cannot locate hosted zone")
-        except:
-            pass
+        else:
             return False
+
+        try:
+            response = self.client.list_hosted_zones_by_name(DNSName=dns)
+        except Exception:
+            return False
+        hz_id = response['HostedZones'][0]['Id']
+        hz_name = response['HostedZones'][0]['Name']
+        hz_id = hz_id.strip('/hostedzone/')
+        if dns + "." == hz_name:
+            self.r53_zone_id = hz_id
+            self.R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=self.r53_zone_id)
+            self.r53_tag_dict = {}
+            self.r53_ip_dict = {}
+            return True
+        return False
 
     def get_r53_records(self):
         for r53_record in self.R53_Record_response['ResourceRecordSets']:
@@ -124,10 +127,10 @@ class NetboxRoute53:
                 tag = R53_tag.split(' ', 1)[1]
                 tag = tag.split(",", 1)[0]
                 tag = '"' + tag + '"'
-                id = R53_tag.split('Id: ', 1)[1]
-                id = id.strip('"')
+                rec_id = R53_tag.split('Id: ', 1)[1]
+                rec_id = rec_id.strip('"')
                 if tag == self.r53_tag:
-                    self.r53_tag_dict.update({id: R53_Record_name})
+                    self.r53_tag_dict.update({rec_id: R53_Record_name})
 
         for r53_record in self.R53_Record_response['ResourceRecordSets']:
             R53_tag = r53_record['ResourceRecords'][0]['Value']
@@ -138,8 +141,8 @@ class NetboxRoute53:
                     ip = r53_record['ResourceRecords'][0]['Value']
                     self.r53_ip_dict.update({R53_Record_name: ip})
 
-    def verify_and_update(self, dns, ip, id, tag):
-        R53_Record_name = self.r53_tag_dict[id]
+    def verify_and_update(self, dns, ip, rec_id, tag):
+        R53_Record_name = self.r53_tag_dict[rec_id]
         R53_ip = self.r53_ip_dict[R53_Record_name]
         dns = dns + "."
 
@@ -243,21 +246,19 @@ class NetboxRoute53:
         self.logging.debug("...Record cleaning...")
 
         response = self.client.list_hosted_zones()
-        for i in response['HostedZones']:
-            hz_record_nmb = i['ResourceRecordSetCount']
-            hz_id = i['Id']
+        for hz in response['HostedZones']:
+            hz_record_nmb = hz['ResourceRecordSetCount']
+            hz_id = hz['Id']
             hz_id = hz_id.strip('/hostedzone/')
             if hz_record_nmb > 2:
                 self.r53_zone_id = hz_id
-                self.R53_Record_response = self.client.list_resource_record_sets(
-                    HostedZoneId=hz_id)
+                self.R53_Record_response = self.client.list_resource_record_sets(HostedZoneId=hz_id)
                 self.r53_tag_dict = {}
                 self.r53_ip_dict = {}
                 self.get_r53_records()
 
                 nb_ip_list = {}
-                ip_search = self.nb.ipam.ip_addresses.filter(
-                    within=self.nb_ip_addresses)
+                ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses)
                 for i in ip_search:
                     nb_ip_list.update({str(i.id): i})
 
@@ -267,23 +268,19 @@ class NetboxRoute53:
                         R53_ip = self.r53_ip_dict[R53_Record_name]
                         R53_tag = self.route53_tag_creator(record)
                         if record in nb_ip_list:
-                            self.logging.debug(
-                                "Record exists %s", R53_Record_name)
+                            self.logging.debug("Record exists %s", R53_Record_name)
                         else:
-                            self.logging.debug(
-                                "Purging record %s", R53_Record_name)
-                            self.delete_r53_record(
-                                R53_Record_name, R53_ip, R53_tag)
+                            self.logging.debug("Purging record %s", R53_Record_name)
+                            self.delete_r53_record(R53_Record_name, R53_ip, R53_tag)
                 else:
                     self.logging.debug("Netbox recordset is empty %s")
 
     # Check all records in Netbox against Route53, and update the tagged record's ip/dns pair if they are incorrect
-    def integrate_records(self, event):
-        try:
-            nb_timespan = json.loads((event["Timespan"]))
-        except:
+    def integrate_records(self, event=None):
+        if event is not None and "Timespan" in event:
+            nb_timespan = event["Timespan"]
+        else:
             nb_timespan = self.timespan
-            pass
 
         self.logging.debug("Record integration...")
         for i in self.get_nb_records(nb_timespan):
@@ -306,10 +303,8 @@ class NetboxRoute53:
                     self.logging.debug("Adding %s", nb_ip)
                     try:
                         self.create_r53_record(nb_dns, nb_ip, nb_tag)
-                    except:
-                        pass
-                        self.logging.debug(
-                            "Error adding record, most likely a duplicate")
+                    except Exception:
+                        self.logging.debug("Error adding record, most likely a duplicate")
 
         self.clean_r53_records()
 
@@ -341,8 +336,7 @@ class NetboxRoute53:
                     self.logging.debug("Deleting %s", request_dns)
                     self.delete_r53_record(nb_dns, nb_ip, nb_tag)
                 else:
-                    self.logging.debug(
-                        "Record already exists: %s", request_dns)
+                    self.logging.debug("Record already exists: %s", request_dns)
             elif request_type == 'created':
                 self.logging.debug("Creating %s", request_dns)
                 self.create_r53_record(nb_dns, nb_ip, nb_tag)
