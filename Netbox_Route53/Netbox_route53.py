@@ -62,6 +62,7 @@ class NetboxRoute53:
 
         # initiate connection to Route53 Via Boto3
         self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
+
         self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
         self.r53_zone_id = ""
         self.R53_Record_response = {}
