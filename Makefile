@@ -118,11 +118,11 @@ lambda-layer: lambda-packages.zip
 
 lambda-function-webhook.zip: lambda_function_webhook.py ## Output all code to zip file
 	cp lambda_function_webhook.py lambda_function.py
-	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
+	zip -r $@ lambda_function.py $(PYDIRS)
 
 lambda-function-auto.zip: lambda_function_auto.py ## Output all code to zip file
 	cp lambda_function_auto.py lambda_function.py
-	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
+	zip -r $@ lambda_function.py $(PYDIRS) 
 
 lambda-upload-webhook:lambda-function-webhook.zip ## Deploy all code to aws
 	aws lambda update-function-code \
