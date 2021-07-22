@@ -75,8 +75,10 @@ class NetboxRoute53:
             timespan = datetime.today() - timedelta(days=nb_timespan)
             timespan.strftime('%Y-%m-%dT%XZ')
             ip_search = self.nb.ipam.ip_addresses.filter(last_updated__gte=timespan, limit=2000)
-
+        
         return ip_search
+
+        
 
     def check_record_exists(self, dns, ip):
         values = [
