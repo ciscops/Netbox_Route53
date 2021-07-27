@@ -40,10 +40,7 @@ class NetboxRoute53:
         if "NETBOX_TIMESPAN" in os.environ:
             self.timespan = int(os.getenv("NETBOX_TIMESPAN"))
         else:
-            self.timespan = 2
-
-        self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
-        self.nb_ip_addresses = self.nb.ipam.ip_addresses.all()
+            self.timespan = "all"
 
         # Initialize Route53
         if "ROUTE53_ID" in os.environ:
@@ -65,16 +62,19 @@ class NetboxRoute53:
 
         # initiate connection to Route53 Via Boto3
         self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
-
+        self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
         self.r53_zone_id = ""
         self.R53_Record_response = {}
         self.r53_tag_dict = {}
         self.r53_ip_dict = {}
 
     def get_nb_records(self, nb_timespan):
-        timespan = datetime.today() - timedelta(days=nb_timespan)
-        timespan.strftime('%Y-%m-%dT%XZ')
-        ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses, last_updated__gte=timespan)
+        if nb_timespan == "all":
+            ip_search = self.nb.ipam.ip_addresses.all(limit=2000)
+        else:
+            timespan = datetime.today() - timedelta(days=nb_timespan)
+            timespan.strftime('%Y-%m-%dT%XZ')
+            ip_search = self.nb.ipam.ip_addresses.filter(last_updated__gte=timespan, limit=2000)
         return ip_search
 
     def check_record_exists(self, dns, ip):
@@ -258,7 +258,7 @@ class NetboxRoute53:
                 self.get_r53_records()
 
                 nb_ip_list = {}
-                ip_search = self.nb.ipam.ip_addresses.filter(within=self.nb_ip_addresses)
+                ip_search = self.nb.ipam.ip_addresses.all(limit=2000)
                 for i in ip_search:
                     nb_ip_list.update({str(i.id): i})
 
@@ -289,14 +289,14 @@ class NetboxRoute53:
             ip = str(i)
             nb_ip = ip.split('/', 2)[0]
             nb_tag = self.route53_tag_creator(nb_id)
-
+            self.logging.debug("Checking %s", nb_ip + " " + nb_dns)
             hz = self.get_fqdn_hz(nb_dns)
             if hz is False:
                 print("No valid hosted zone located")
                 # change to debug
             else:
                 self.get_r53_records()
-                self.logging.debug("Checking %s", nb_ip + " " + nb_dns)
+                #self.logging.debug("Checking %s", nb_ip + " " + nb_dns)
                 if self.get_r53_record_tag(nb_id):
                     self.verify_and_update(nb_dns, nb_ip, nb_id, nb_tag)
                 else:
