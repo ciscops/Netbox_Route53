@@ -2,7 +2,7 @@
 
 Lambda or Terminal run script, using Netbox as a source of truth to integrate ip/dns pairs into Route53 via webhook or on a schedule basis.
 
-## Requirements  
+## Requirements
 * Boto3 1.17.6
 * Netbox 5.3.1
 * Python 3.8
@@ -33,24 +33,24 @@ Netbox is seen as the source of truth by this script, and will only react to wha
 is listed in netbox. There are no changes made to the records inside of netbox.
 
 
-### Aws Function Setup   
+### Aws Function Setup
 To prepare the framework inside AWS LAMBDA for uploading the script via Makefile commands
 
--Create two lambda functions, one titled for webhook, and one titled for auto timer based running  
-(Use Python version 3.8)  
+-Create two lambda functions, one titled for webhook, and one titled for auto timer based running
+(Use Python version 3.8)
 * [Aws docs Functions](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html)
 
 
--Aws Cloudwatch Trigger Setup  
+-Aws Cloudwatch Trigger Setup
 (Start from step 2, set timer to run every 30 minutes)
 * [Aws docs Cloudwatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/RunLambdaSchedule.html)
 
 To store the timespan within cloudwatch timer for multiple timer use, under targets, constant(json text) paste
 the following:  {"Timespan": "1" }   (note, any other cloudwatch timers will be set up the same but with different time spans)
 
-If there is no cloudwatch timespan set, or is set incorrectly, the script will use the environment variable 
+If there is no cloudwatch timespan set, or is set incorrectly, the script will use the environment variable
 
--Aws API Gateway Trigger Setup  
+-Aws API Gateway Trigger Setup
 (For the Netbox setup below, you will need the AWS API gateway Arn from creating an api gateway trigger)
 * [Aws docs Apigateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/getting-started.html)
 
@@ -63,12 +63,12 @@ To enable Netbox webhooks:
   Netbox>Admin>Webhooks>Add Webhook
 
   Name: ()
-  Object types: (IP addess, prefix)  
-  Enabled: (checked)  
-  Type Create: (checked)  
-  Type Update: (checked)  
-  Type Delete: (checked)  
-  URL: (AWS API gateway arn) < (See Api gateway trigger setup)  
+  Object types: (IP addess, prefix)
+  Enabled: (checked)
+  Type Create: (checked)
+  Type Update: (checked)
+  Type Delete: (checked)
+  URL: (AWS API gateway arn) < (See Api gateway trigger setup)
   HTTP method: (POST)
   HTTP content type: (application/json)
 
@@ -80,16 +80,31 @@ Rename LAMBDA_WEBHOOK_FUNCTION and LAMBDA_AUTO_FUNCTION inside the makefile to m
 
 (Terminal/Cmd commands to port script to aws)
 
--Specify Aws account details
+#### Specify Aws account details
 ```bash
-aws configure    
+aws configure
 aws sts get-caller-identity
 ```
 
--Compile Script and upload to both functions
+#### Compile Script and upload to both functions
 
 ```bash
 make lambda-layer
 make lambda-upload-webhook
 make lambda-upload-auto
-```    
+```
+
+#### Build on MacOS
+
+##### Create builder image (only needs to be done once)
+```bash
+make build-container
+```
+
+##### Build and push
+```bash
+make lambda-packages-docker
+make lambda-layer
+make lambda-upload-webhook
+make lambda-upload-auto
+```

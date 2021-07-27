@@ -106,6 +106,10 @@ lambda-packages: $(VENV) requirements.txt ## Install all libraries
 
 	# packages, so that it doesn't install in your virtual env by default
 
+# create lambda-packages.zip using a docker image
+lambda-packages-docker: clean-lambda
+	docker run --rm --name lambda-builder --user $$(id -u) -v $$(pwd):/build lambda-builder:latest make lambda-packages.zip
+
 lambda-packages.zip: lambda-packages ## Output all code to zip file
 	cd lambda-packages && zip -r ../$@ * # zip all python source code into output.zip
 
@@ -133,5 +137,9 @@ lambda-upload-auto: lambda-function-auto.zip ## Deploy all code to aws
 	aws lambda update-function-code \
 	--function-name $(LAMBDA_AUTO_FUNCTION) \
 	--zip-file fileb://lambda-function-auto.zip
+
+build-container:
+	docker build -t lambda-builder:latest .
+
 
 .PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs lambda-function-webhook.zip lambda-function-auto.zip
