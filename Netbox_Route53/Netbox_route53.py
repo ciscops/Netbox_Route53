@@ -318,7 +318,6 @@ class NetboxRoute53:
         hz = self.get_fqdn_hz(request_dns)
         if hz is False:
             print("No valid hosted zone located")
-            # change to debug
         else:
             self.get_r53_records()
             nb_dns = request_dns
