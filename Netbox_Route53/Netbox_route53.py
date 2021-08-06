@@ -283,7 +283,7 @@ class NetboxRoute53:
             nb_timespan = self.timespan
 
         self.logging.debug("Record integration...")
-        for i in self.get_nb_records(nb_timespan):
+        for i in self.get_nb_records(int(nb_timespan)):
             nb_id = str(i.id)
             nb_dns = i.dns_name
             ip = str(i)
