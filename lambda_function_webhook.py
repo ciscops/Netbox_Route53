@@ -15,7 +15,10 @@ def lambda_handler(event, handle):
     logger.debug(socket.gethostbyname('netbox3.aws.ciscops.net'))
     start_time = datetime.datetime.now()
     netbox_r53 = NetboxRoute53()
-    netbox_r53.webhook_update_record(event)
+    if "Timespan" in event:
+        netbox_r53.integrate_records(event)
+    else:
+        netbox_r53.webhook_update_record(event)
     end_time = datetime.datetime.now()
     logger.debug('Script complete, total runtime {%s - %s}', end_time, start_time)
     return {

@@ -1,8 +1,7 @@
 # Makefile
 PYTHON_EXE = python3
 PROJECT_NAME="Netbox_Route53_Integration"
-LAMBDA_WEBHOOK_FUNCTION="ppajersk-nb-r53"
-LAMBDA_AUTO_FUNCTION="ppajersk-nbr53-auto"
+LAMBDA_FUNCTION="ppajersk-nb-r53"
 LAMBDA_LAYER_NAME="nb-r53"
 TOPDIR = $(shell git rev-parse --show-toplevel)
 PYDIRS="Netbox_Route53"
@@ -99,6 +98,7 @@ clean-lambda:
 	$(RM) -rf lambda-packages
 	$(RM) lambda-packages.zip
 	$(RM) lambda-function.zip
+	$(RM) lambda-function-webhook.zip
 
 lambda-packages: $(VENV) requirements.txt ## Install all libraries
 	@[ -d $@ ] || mkdir -p $@/python # Create the libs dir if it doesn't exist
@@ -116,22 +116,13 @@ lambda-layer: lambda-packages.zip
 	--zip-file fileb://lambda-packages.zip \
 	--compatible-runtimes python3.8
 
-lambda-function-webhook.zip: lambda_function_webhook.py ## Output all code to zip file
+lambda-function.zip: lambda_function_webhook.py ## Output all code to zip file
 	cp lambda_function_webhook.py lambda_function.py
 	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
 
-lambda-function-auto.zip: lambda_function_auto.py ## Output all code to zip file
-	cp lambda_function_auto.py lambda_function.py
-	zip -r $@ lambda_function.py $(PYDIRS) # zip all python source code into output.zip
-
-lambda-upload-webhook:lambda-function-webhook.zip ## Deploy all code to aws
+lambda-upload:lambda-function.zip ## Deploy all code to aws
 	aws lambda update-function-code \
-	--function-name $(LAMBDA_WEBHOOK_FUNCTION) \
-	--zip-file fileb://lambda-function-webhook.zip
-
-lambda-upload-auto: lambda-function-auto.zip ## Deploy all code to aws
-	aws lambda update-function-code \
-	--function-name $(LAMBDA_AUTO_FUNCTION) \
-	--zip-file fileb://lambda-function-auto.zip
+	--function-name $(LAMBDA_FUNCTION) \
+	--zip-file fileb://lambda-function.zip
 
 .PHONY: all clean $(VENV) test check format check-format pylint clean-docs-html clean-docs-markdown apidocs lambda-function-webhook.zip lambda-function-auto.zip

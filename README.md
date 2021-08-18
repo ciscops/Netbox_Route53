@@ -4,26 +4,20 @@ Lambda or Terminal run script, using Netbox as a source of truth to integrate ip
 
 ## Requirements  
 * Boto3 1.17.6
-* Netbox 5.3.1
+* Netbox 6.1.3
 * Python 3.8
 
 ## Description
 
 Netbox-Route53-Integration can be run either on terminal/cmd, or in AWS Lambda.
-The script runs in lambda either via webhook or on a timer, using apigateway or
-Cloudwatch respectively. There is a separate lambda script for each of the two
-functions (webhook and timer based) which can be run simultaneously in the same Aws
-account.
-
-The script file Netbox_route53.py, is identical between the two functions
-and the difference is in the lambda_fuction_(auto or webhook).py files, which
-specify which parts of the script will run.
+The script runs in lambda using apigateway and Cloudwatch respectively, to
+maintain record synchronization.
 
 The webhook function reacts on an creation/update/deletion of a record in netbox
 and changes the record in route53 accordingly, using a combination of netbox
 webhooks and apigateway to communicate to the AWS function.
 
-The automatic version does a periodic sync between all current records in netbox,
+Apigateway does a periodic sync between all current records in netbox,
 verifying all records match. It will then remove any route53 records that don't
 have a matching set in netbox. All records created in route53 are tagged with a
 user-specified tag which prevents the script from changing or deleting existing
@@ -36,7 +30,7 @@ is listed in netbox. There are no changes made to the records inside of netbox.
 ### Aws Function Setup   
 To prepare the framework inside AWS LAMBDA for uploading the script via Makefile commands
 
--Create two lambda functions, one titled for webhook, and one titled for auto timer based running  
+-Create a lambda function, appropriately named
 (Use Python version 3.8)  
 * [Aws docs Functions](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html)
 
@@ -48,7 +42,7 @@ To prepare the framework inside AWS LAMBDA for uploading the script via Makefile
 To store the timespan within cloudwatch timer for multiple timer use, under targets, constant(json text) paste
 the following:  {"Timespan": "1" }   (note, any other cloudwatch timers will be set up the same but with different time spans)
 
-If there is no cloudwatch timespan set, or is set incorrectly, the script will use the environment variable 
+If there is no cloudwatch timespan set, or is set incorrectly, the script will use the environment variable "TIMESPAN"
 
 -Aws API Gateway Trigger Setup  
 (For the Netbox setup below, you will need the AWS API gateway Arn from creating an api gateway trigger)
@@ -76,7 +70,7 @@ To enable Netbox webhooks:
 ### Makefile
 To push script to lamdba, use Makefile commands
 
-Rename LAMBDA_WEBHOOK_FUNCTION and LAMBDA_AUTO_FUNCTION inside the makefile to match the names of the respective Aws Lambda functions
+Rename LAMBDA_FUNCTION_NAME inside the makefile to match the name of the  Aws Lambda function
 
 (Terminal/Cmd commands to port script to aws)
 
