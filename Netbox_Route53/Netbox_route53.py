@@ -59,8 +59,8 @@ class NetboxRoute53:
         else:
             #self.r53_tag = "\"nbr53\""
             self.r53_tag = "nbr53"
-            self.r53_record_tag = f"\"{self.r53_tag}\""
 
+        self.r53_record_tag = f"\"{self.r53_tag}\""
         self.client = boto3.client('route53', aws_access_key_id=self.r53_id, aws_secret_access_key=self.r53_key)
         self.nb = pynetbox.api(url=self.nb_url, token=self.nb_token)
         self.hosted_zone_dict = {}
@@ -78,8 +78,8 @@ class NetboxRoute53:
     def get_r53_records(self, hz_list):
         route53_records = {}
 
-        for i in range(len(hz_list)):
-            nb_hz_name = hz_list[i]
+        for i, value in enumerate(hz_list):
+            nb_hz_name = value
             try:
                 response = self.client.list_hosted_zones_by_name(DNSName=nb_hz_name)
             except Exception:
@@ -260,11 +260,12 @@ class NetboxRoute53:
         r53_records_dict = self.get_r53_records(nb_hz_list)
         self.logging.debug(r53_records_dict)
         self.logging.debug("Integrating records")
-        for i in range(len(nb_records_list)):
-            dns = nb_records_list[i]['dns']
-            ip = nb_records_list[i]['ip'].split('/', 2)[0]
-            nb_id = str(nb_records_list[i]['id'])
-            hz = nb_records_list[i]['hz']
+
+        for i, value in enumerate(nb_records_list):
+            dns = value['dns']
+            ip = value['ip'].split('/', 2)[0]
+            nb_id = str(value['id'])
+            hz = value['hz']
             self.logging.debug("Checking Netbox record: %s | ip: %s | id: %s", dns, ip, nb_id)
             txt_key = f"{hz}|{nb_id}|TXT"
             a_key_dns = f"{hz}|{dns}.|A"
