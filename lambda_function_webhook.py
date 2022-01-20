@@ -1,7 +1,6 @@
 import logging
 import datetime
 import json
-import socket
 from Netbox_Route53.Netbox_route53 import NetboxRoute53
 
 logger = logging.getLogger()
@@ -12,7 +11,7 @@ def lambda_handler(event, handle):
     logger.debug('new event received: %s', str(event))
     logger.debug(str(event))
     logger.debug(str(handle))
-    logger.debug(socket.gethostbyname('netbox3.aws.ciscops.net'))
+    #logger.debug(socket.gethostbyname('netbox3.aws.ciscops.net'))
     start_time = datetime.datetime.now()
     netbox_r53 = NetboxRoute53()
     if "Timespan" in event:
