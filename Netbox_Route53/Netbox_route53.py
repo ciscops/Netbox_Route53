@@ -78,8 +78,8 @@ class NetboxRoute53:
     def get_r53_records(self, hz_list):
         route53_records = {}
 
-        for i, value in enumerate(hz_list):
-            nb_hz_name = value
+        for hosted_zone in hz_list:
+            nb_hz_name = hosted_zone
             try:
                 response = self.client.list_hosted_zones_by_name(DNSName=nb_hz_name)
             except Exception:
@@ -90,7 +90,6 @@ class NetboxRoute53:
             if nb_hz_name + "." == hz_name:
                 self.hosted_zone_dict.update({nb_hz_name: hz_id})
                 self.logging.debug("Searching records for hosted zone: %s", hz_name)
-                #hosted_zone_records = self.client.list_resource_record_sets(HostedZoneId=hz_id)
                 r53_dns_records = []
 
                 hosted_zone_records = self.client.list_resource_record_sets(HostedZoneId=hz_id)
@@ -103,11 +102,10 @@ class NetboxRoute53:
                     )
                     r53_dns_records.extend(hosted_zone_records['ResourceRecordSets'])
 
-                # Above needs the paginator true false bit
                 for record in r53_dns_records:
                     if record['Type'] == 'TXT':
                         value = record['ResourceRecords'][0]['Value']
-                        if self.r53_tag in value:  # Use the env var for this
+                        if self.r53_tag in value:
                             #rebuild this using regex
                             tag = value.split(' ', 1)[1]
                             tag = tag.split(",", 1)[0]
@@ -261,11 +259,11 @@ class NetboxRoute53:
         self.logging.debug(r53_records_dict)
         self.logging.debug("Integrating records")
 
-        for i, value in enumerate(nb_records_list):
-            dns = value['dns']
-            ip = value['ip'].split('/', 2)[0]
-            nb_id = str(value['id'])
-            hz = value['hz']
+        for nb_record in nb_records_list:
+            dns = nb_record['dns']
+            ip = nb_record['ip'].split('/', 2)[0]
+            nb_id = str(nb_record['id'])
+            hz = nb_record['hz']
             self.logging.debug("Checking Netbox record: %s | ip: %s | id: %s", dns, ip, nb_id)
             txt_key = f"{hz}|{nb_id}|TXT"
             a_key_dns = f"{hz}|{dns}.|A"
