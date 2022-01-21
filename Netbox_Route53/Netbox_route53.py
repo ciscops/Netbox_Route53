@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 import logging
+import json
+import re
 import os
 import sys
 import pynetbox
@@ -105,8 +107,7 @@ class NetboxRoute53:
                 for record in r53_dns_records:
                     if record['Type'] == 'TXT':
                         value = record['ResourceRecords'][0]['Value']
-                        if self.r53_tag in value:
-                            #rebuild this using regex
+                        if re.match('^"Tag: {},'.format(self.r53_tag), value):
                             tag = value.split(' ', 1)[1]
                             tag = tag.split(",", 1)[0]
                             tag = '"' + tag + '"'
@@ -149,6 +150,21 @@ class NetboxRoute53:
         tag_strip = tag.strip('"')
         return_tag = '"Tag: ' + tag_strip + ", Id: " + request_id + '"'
         return (return_tag)
+
+    def txt_key_lookup(self, txt_key, r53_records_dict, hz):
+        if txt_key in r53_records_dict:
+            self.logging.debug("TXT record located")
+            a_key = f"{hz}|{r53_records_dict[txt_key]['dns']}|A"
+            if a_key in r53_records_dict:
+                self.logging.debug("Matching A record located")
+                value = r53_records_dict[txt_key]['value']
+                if self.r53_tag in value:
+                    self.logging.debug("Record is tagged, validating record")
+                    r53_dns = r53_records_dict[txt_key]['dns']
+                    r53_ip = r53_records_dict[a_key]
+                    return r53_dns, r53_ip
+        self.logging.debug("Could not locate a valid TXT record")
+        return 'empty', 'empty'
 
     def create_r53_record(self, dns, ip, tag, zone_id):
         self.client.change_resource_record_sets(
@@ -232,6 +248,50 @@ class NetboxRoute53:
             }
         )
 
+    # Create/update/delete a single netbox record based on webhook request
+    def webhook_update_record(self, event):
+        webhook_json = json.loads((event["body"]))
+        request_type = webhook_json['event']
+        nb_ip = str(webhook_json['data']['address']).split('/', 2)[0]
+        nb_dns = webhook_json['data']['dns_name']
+        nb_id = str(webhook_json['data']['id'])
+
+        self.logging.debug("Webhook received")
+        if len(nb_dns) > 0 and '.' in nb_dns:
+            self.logging.debug("A Netbox record was updated: %s | ip: %s", nb_dns, nb_ip)
+            nb_hz = nb_dns.split('.', 1)[1]
+            r53_records_dict = self.get_r53_records([nb_hz])
+
+            txt_key = f"{nb_hz}|{nb_id}|TXT"
+            a_key_dns = f"{nb_hz}|{nb_dns}.|A"
+            a_key_ip = f"{nb_hz}|{nb_ip}|A"
+            tag = self.route53_tag_creator(nb_id)
+
+            try:
+                zone_id = self.hosted_zone_dict[nb_hz]
+            except Exception:
+                self.logging.debug("Cannot locate hosted zone %s", nb_hz)
+                sys.exit(1)
+
+            r53_dns, r53_ip = self.txt_key_lookup(txt_key, r53_records_dict, nb_hz)
+            if r53_dns != 'empty':
+                if request_type == 'updated':
+                    self.logging.debug("Updating record %s", nb_dns)
+                    self.verify_and_update(nb_dns, nb_ip, r53_dns, r53_ip, tag, zone_id)
+                elif request_type == 'deleted':
+                    self.logging.debug("Deleting record %s", nb_dns)
+                    self.delete_r53_record(nb_dns, nb_ip, tag, zone_id)
+                else:
+                    self.logging.debug("Record already exists %s")
+            elif a_key_dns not in r53_records_dict and a_key_ip not in r53_records_dict:
+                if request_type == 'created':
+                    self.logging.debug("Creating record %s", nb_dns)
+                    self.create_r53_record(nb_dns, nb_ip, tag, zone_id)
+            else:
+                self.logging.debug("Record already exists")
+        else:
+            self.logging.debug("Hosted zone cannot be parsed from record name, quitting")
+
     # Check all records in Netbox against Route53, and update the tagged record's ip/dns pair if they are incorrect
     def integrate_records(self, event=None):
         if event is not None and "Timespan" in event:
@@ -267,7 +327,7 @@ class NetboxRoute53:
             self.logging.debug("Checking Netbox record: %s | ip: %s | id: %s", dns, ip, nb_id)
             txt_key = f"{hz}|{nb_id}|TXT"
             a_key_dns = f"{hz}|{dns}.|A"
-            a_key_ip = f"{hz}|{ip}.|A"
+            a_key_ip = f"{hz}|{ip}|A"
 
             tag = self.route53_tag_creator(nb_id)
 
@@ -278,17 +338,9 @@ class NetboxRoute53:
                 continue
 
             # This first lookup checks for a txt record with the unique netbox id
-            if txt_key in r53_records_dict:
-                self.logging.debug("TXT record located")
-                a_key = f"{hz}|{r53_records_dict[txt_key]['dns']}|A"
-                if a_key in r53_records_dict:
-                    self.logging.debug("Matching A record located")
-                    value = r53_records_dict[txt_key]['value']
-                    if self.r53_tag in value:
-                        self.logging.debug("Record is tagged, validating record")
-                        r53_dns = r53_records_dict[txt_key]['dns']
-                        r53_ip = r53_records_dict[a_key]
-                        self.verify_and_update(dns, ip, r53_dns, r53_ip, tag, zone_id)
+            r53_dns, r53_ip = self.txt_key_lookup(txt_key, r53_records_dict, hz)
+            if r53_dns != 'empty':
+                self.verify_and_update(dns, ip, r53_dns, r53_ip, tag, zone_id)
             # Second lookup checks to see if the record exists at all in route53
             elif a_key_dns in r53_records_dict or a_key_ip in r53_records_dict:
                 self.logging.debug("A type record located but isn't tagged, continuing")
