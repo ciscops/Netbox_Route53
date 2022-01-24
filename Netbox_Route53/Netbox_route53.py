@@ -238,6 +238,9 @@ class NetboxRoute53:
                 self.logging.debug("Cannot locate hosted zone %s", nb_hz)
                 sys.exit(1)
 
+            record_webhook_changes = {}
+            record_webhook_changes[zone_id] = []
+
             r53_dns, r53_ip = self.txt_key_lookup(txt_key, r53_records_dict, nb_hz)
             if r53_dns != 'empty':
                 if request_type == 'updated':
@@ -245,13 +248,15 @@ class NetboxRoute53:
                     self.verify_and_update(nb_dns, nb_ip, r53_dns, r53_ip, tag, zone_id)
                 elif request_type == 'deleted':
                     self.logging.debug("Deleting record %s", nb_dns)
-                    self.delete_r53_record(nb_dns, nb_ip, tag, zone_id)
+                    record_webhook_changes[zone_id].extend(self.format_change_json('DELETE', nb_dns, nb_ip, tag, 'txt, a', 'set'))
+                    self.update_route53(record_webhook_changes)
                 else:
                     self.logging.debug("Record already exists %s")
             elif a_key_dns not in r53_records_dict and a_key_ip not in r53_records_dict:
                 if request_type == 'created':
                     self.logging.debug("Creating record %s", nb_dns)
-                    self.create_r53_record(nb_dns, nb_ip, tag, zone_id)
+                    record_webhook_changes[zone_id].extend(self.format_change_json('CREATE', nb_dns, nb_ip, tag, 'txt, a', 'set'))
+                    self.update_route53(record_webhook_changes)
             else:
                 self.logging.debug("Record already exists")
         else:
