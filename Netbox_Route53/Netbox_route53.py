@@ -160,7 +160,7 @@ class NetboxRoute53:
             if a_key in r53_records_dict:
                 self.logging.debug("Matching A record located")
                 value = r53_records_dict[txt_key]['value']
-                if self.r53_tag in value:
+                if re.match('^"Tag: {},'.format(self.r53_tag), value):
                     self.logging.debug("Record is tagged, validating record")
                     r53_dns = r53_records_dict[txt_key]['dns']
                     r53_ip = r53_records_dict[a_key]
