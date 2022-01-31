@@ -93,7 +93,6 @@ class NetboxRoute53:
                 self.hosted_zone_dict.update({nb_hz_name: hz_id})
                 self.logging.debug("Searching records for hosted zone: %s", hz_name)
                 r53_dns_records = self.get_hosted_zone_records(hz_id)
-
                 for record in r53_dns_records:
                     if record['Type'] == 'TXT':
                         value = record['ResourceRecords'][0]['Value']
@@ -109,7 +108,7 @@ class NetboxRoute53:
                             key = f"{nb_hz_name}|{record['Name']}|TXT"
                         route53_records.update({key: value})
 
-                    elif record['Type'] == 'A':
+                    elif record['Type'] == 'A' and 'ResourceRecords' in record:
                         ip = record['ResourceRecords'][0]['Value']
                         key = f"{nb_hz_name}|{record['Name']}|A"
                         ip_key = f"{nb_hz_name}|{ip}|A"
@@ -165,6 +164,7 @@ class NetboxRoute53:
                     r53_dns = r53_records_dict[txt_key]['dns']
                     r53_ip = r53_records_dict[a_key]
                     return r53_dns, r53_ip
+                self.logging.debug("Record is not tagged, continuing")
         self.logging.debug("Could not locate a valid TXT record")
         return 'empty', 'empty'
 
@@ -211,6 +211,7 @@ class NetboxRoute53:
             zone_id = batch
             changes = record_changes[batch]
             if len(changes) != 0:
+                self.logging.debug("Pushing changes to route53 hosted zone %s : %s", zone_id, changes)
                 self.client.change_resource_record_sets(HostedZoneId=zone_id, ChangeBatch={'Changes': changes})
 
     # Create/update/delete a single netbox record based on webhook request
