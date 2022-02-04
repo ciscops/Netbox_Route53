@@ -1,6 +1,6 @@
 # Netbox-Route53-Integration
 
-Lambda or Terminal run script, using Netbox as a source of truth to integrate ip/dns pairs into Route53 via webhook or on a schedule basis.
+Lambda run script, using Netbox as a source of truth to integrate ip/dns pairs into Route53 via webhook and on a schedule basis.
 
 ## Requirements  
 * Boto3 1.17.6
@@ -9,22 +9,64 @@ Lambda or Terminal run script, using Netbox as a source of truth to integrate ip
 
 ## Description
 
-Netbox-Route53-Integration can be run either on terminal/cmd, or in AWS Lambda.
-The script runs in lambda using apigateway and Cloudwatch respectively, to
-maintain record synchronization.
+Netbox-Route53 is a python script that is used to sync Route53 records with
+Netbox. This script uses webhooks for instant updating, as well as an
+integration function that runs on an hourly and daily timer to fully sync up
+records.
 
-The webhook function reacts on an creation/update/deletion of a record in netbox
-and changes the record in route53 accordingly, using a combination of netbox
-webhooks and apigateway to communicate to the AWS function.
+Netbox record id's are permanently unique, so when the script adds records to
+Route53, it creates an accompanying txt record with a special identifier tag
+as well as the Netbox record id. This prevents the script from updating records
+that it hasn't created and ensures that it always updates the correct record
+inside of Route53. (The id is seen as the only identifier for a record)
 
-Apigateway does a periodic sync between all current records in netbox,
-verifying all records match. It will then remove any route53 records that don't
-have a matching set in netbox. All records created in route53 are tagged with a
-user-specified tag which prevents the script from changing or deleting existing
-records without this tag.
+The webhooks work by having Netbox configured to send events to the
+script anytime a record in Netbox is created, updated or deleted. The script
+parses these webhooks and decides what action to take based on the type of
+event (c/u/d). Only records with the special txt identifier record will be
+modified.
 
-Netbox is seen as the source of truth by this script, and will only react to what
-is listed in netbox. There are no changes made to the records inside of netbox.
+The timer based portion of the script will integrate records from Netbox to
+Route53 based on a timespan variable. This retrieves the newer records in Netbox
+and compares them to what is in Route53, following the same create/update/delete
+logic as webhooks for each record. After integrating all the records, the script
+purges any Route53 record that has a tag, but is not present in Netbox. This is
+to prevent stale records from hanging around.
+
+### How the comparisons work:
+
+To quickly compare a large number of records and minimize on script uptime, all
+Netbox records are retrieved in 1 api call and stored in a dictionary as mapped
+key values. The hosted zones are parsed from the Netbox record names so only
+the necessary hosted zone records are retrieved and put into a key value mapping
+for Route53 records.
+
+The script then iterates through these two dictionaries, determining what to do
+for each Netbox record, then formulates the update in json, finishing by storing
+it in a changebatch variable which contains all the changes to be sent to Route53
+in a single api batch call.
+
+The purging function (clean_r53_records) works in a similar manner, however it
+calls Netbox and Route53 again, to get an up-to-date snapshot post integration.
+
+Example of the three different type of key value mappings used:
+
+txt_key = f"{hz}|{nb_id}|TXT"
+a_key_dns = f"{hz}|{dns}.|A"
+a_key_ip = f"{hz}|{ip}|A"
+
+All 3 keys contain value pairs that give extra information about a record.
+
+Txt keys are built to check if an A record has an accompanying txt record
+which then can be checked for presence of the tag, and the Netbox id.
+
+A keys (dns and ip) are necessary to check if a record exists already. Dns and ip
+need to be separate because duplicates of either kind are not supported by script
+logic.
+
+Keys are generated and stored in a dictionary every time the script starts. For
+every record the script checks, it generates a new key and checks the dict it created
+to see if the key is present.
 
 
 ### Aws Function Setup   
@@ -51,10 +93,10 @@ If there is no cloudwatch timespan set, or is set incorrectly, the script will u
 
 ### Netbox Webhook Setup
 To enable Netbox webhooks:
-* [Netbox docs Webhooks](https://netbox.readthedocs.io/en/stable/additional-features/webhooks/)
+* [Netbox docs Webhooks](https://Netbox.readthedocs.io/en/stable/additional-features/webhooks/)
 
 
-  Netbox>Admin>Webhooks>Add Webhook
+  Netbox>Other>Webhooks>Add Webhook
 
   Name: ()
   Object types: (IP addess, prefix)  
@@ -66,6 +108,23 @@ To enable Netbox webhooks:
   HTTP method: (POST)
   HTTP content type: (application/json)
 
+### IAM user setup & env vars (aws)
+
+The following environment variables need to be added to the lambda function
+NETBOX_TIMESPAN: 1
+NETBOX_TOKEN: (access token for Netbox)
+NETBOX_URL: (url for Netbox)
+ROUTE53_ID: See IAM user setup below
+ROUTE53_KEY: See IAM user setup below
+ROUTE53_TAG: nbr53
+
+An aws IAM user needs to be created and the access key/secret key are put in as env
+vars in the order ROUTE53_ID = access key | ROUTE53_KEY: secret key
+
+The IAM user needs to have the following policies attached:
+- AmazonRoute53DomainsReadOnlyAccess
+- AmazonAPIGatewayPushToCloudWatchLogs
+- AmazonRoute53FullAccess
 
 ### Makefile
 To push script to lamdba, use Makefile commands
@@ -84,6 +143,5 @@ aws sts get-caller-identity
 
 ```bash
 make lambda-layer
-make lambda-upload-webhook
-make lambda-upload-auto
+make lambda-upload
 ```    
