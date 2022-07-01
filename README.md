@@ -51,16 +51,14 @@ calls Netbox and Route53 again, to get an up-to-date snapshot post integration.
 
 Example of the three different type of key value mappings used:
 
-txt_key = f"{hz}|{nb_id}|TXT"
-a_key_dns = f"{hz}|{dns}.|A"
-a_key_ip = f"{hz}|{ip}|A"
+- txt_key = f"{hz}|{nb_id}|TXT"
+- a_key_dns = f"{hz}|{dns}.|A"
+- a_key_ip = f"{hz}|{ip}|A"
 
 All 3 keys contain value pairs that give extra information about a record.
 
 Txt keys are built to check if an A record has an accompanying txt record
-which then can be checked for presence of the tag, and the Netbox id.
-
-A keys (dns and ip) are necessary to check if a record exists already. Dns and ip
+which then can be checked for presence of the tag, and the Netbox id. A keys (dns and ip) are necessary to check if a record exists already. Dns and ip
 need to be separate because duplicates of either kind are not supported by script
 logic.
 
